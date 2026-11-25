@@ -1,6 +1,6 @@
 # spearman-fit-casey/spearman.glb: provenance
 
-Review candidate (round r2, a test with raised map-thread limits: LOD0 up to 30k triangles, about 3 MB), not a shipped unit. Licence of the combined asset: CC BY-SA 3.0
+Review candidate (round r3, a test with raised map-thread limits: LOD0 up to 30k triangles, about 3 MB), not a shipped unit. Licence of the combined asset: CC BY-SA 3.0
 (the 0 A.D. rig and clips are share-alike; the model is CC BY 4.0, which permits this).
 
 ## Credits
@@ -32,5 +32,8 @@ axis and scaled to its length; re-skinned with 0 A.D. weights; clothing kept at 
 topology in LOD0 (29,496 triangles; LOD1 2,864); materials baked to one 1024 WebP set (base
 colour, normal, ORM); bronze regraded to warm gold-brown and skin to a tanned tone;
 crest and shield rim carry the COLOR_0 team mask with neutral texels.
+Round r3 adds generated linen sleeve shells (replacing the torn source sleeves), a generated
+Corinthian face plate with a dark T opening, skin sunk a few millimetres under clothing, and
+curvature-driven edge wear on the bronze. The model's eyes are removed (hidden by the plate).
 
 Rebuild: see `tools/art/anim3d/kit/FIT.md` ("Real models, round r1").

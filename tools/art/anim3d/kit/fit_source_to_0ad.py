@@ -65,6 +65,10 @@ ap.add_argument('--crest-glb', type=Path, help="take the crest (team region 'cre
 ap.add_argument('--keep', action='append', default=[], metavar='PART', help='keep PART at full source topology in LOD0 (thin garments shred when decimated); repeatable')
 ap.add_argument('--grade-bronze', action='store_true', help='regrade metallic texels toward warm gold-brown bronze: darker recesses, bright worn edges, rougher')
 ap.add_argument('--grade-skin', help="regrade skin texels toward this sRGB hex mean (e.g. b07850 for a tanned tone)")
+ap.add_argument('--sleeves', type=float, metavar='FRACTION', help='replace the upper-arm garment with fitted linen sleeve shells down to FRACTION of the upper arm')
+ap.add_argument('--strip', action='append', default=[], metavar='BONE', help='delete clothing/armour around a 0 A.D. limb bone (e.g. forearm_L, hidden behind the shield) where it cannot follow the clips cleanly')
+ap.add_argument('--corinthian', action='store_true', help='close an open helmet with a Corinthian face plate (cheek and nasal guards, dark T opening)')
+ap.add_argument('--press-skin', action='store_true', help='sink skin a few mm under any clothing or armour close above it (no poke-through)')
 ap.add_argument('--add-crest', action='store_true', help='model a horsehair crest arc on a crestless helmet (team colour)')
 ap.add_argument('--shield-glb', type=Path, help='take the aspis (vertices rigid to shield_arm) from another unit GLB on this rig, replacing the source shield')
 ap.add_argument('--license', default='CC-BY-SA-3.0', help='licence of the combined asset (the 0 A.D. clips are CC BY-SA 3.0)')
@@ -380,6 +384,55 @@ for part in [p for p in PART_ORDER if p in fitted_objects]:
 def all_co(objs): return np.concatenate([co(o) for o in objs])
 
 
+from fit_shells import sleeve, corinthian, press_under, material as shell_material
+if args.sleeves and 'body' in fitted_objects:
+    # Linen sleeves rebuilt as simple shells around the 0 A.D. upper arms: the
+    # source's sleeve pieces tore and let the skin through once the arms moved.
+    skin_pts = all_co(fitted_objects['body'])
+    linen = shell_material('Linen sleeve (generated)', None, .9, 0,
+                           lambda u, v: np.stack([.90 + 0 * u, .85 + 0 * u, .72 + 0 * u], -1) * (.93 + .07 * (np.sin(u * 900) > 0))[..., None] * np.where((v > .9)[..., None], .82, 1))
+    removed = 0
+    for side in 'LR':
+        a, b = rig.joint['arm_' + side], rig.joint['forearm_' + side]
+        o, (u, tmax, rmax) = sleeve(skin_pts, a, b, args.sleeves, linen, f'Sleeve {side}')
+        o['part'] = 'layer'; fitted_objects.setdefault('layer', []).append(o)
+        for lo_ in fitted_objects.get('layer', []):
+            if lo_ is o or lo_.name.startswith('Sleeve'): continue
+            bm = bmesh.new(); bm.from_mesh(lo_.data)
+            dead = []
+            for f in bm.faces:
+                c = np.array(f.calc_center_median()) - a; tt = c @ u; rr = np.linalg.norm(c - u * tt)
+                # Only garment lateral of the shoulder joint: the cuirass beside the
+                # arm (same distance from the bone axis) must stay.
+                if .035 < tt < tmax + .03 and rr < rmax + .015 and c[0] * np.sign(a[0]) > -.005: dead.append(f)
+            bmesh.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(lo_.data); bm.free(); removed += len(dead)
+    report['sleeves'] = {'fraction': args.sleeves, 'source_faces_removed': removed}
+    log('sleeves rebuilt', report['sleeves'])
+NEXT = {'arm_L': 'forearm_L', 'forearm_L': 'hand_L', 'arm_R': 'forearm_R', 'forearm_R': 'hand_R',
+        'thigh_L': 'leg_L', 'leg_L': 'foot_L', 'thigh_R': 'leg_R', 'leg_R': 'foot_R'}
+for bone_ in args.strip:
+    a, b = rig.joint[bone_], rig.joint[NEXT[bone_]]; u = (b - a) / np.linalg.norm(b - a); L_ = np.linalg.norm(b - a)
+    gone = 0
+    for lo_ in fitted_objects.get('layer', []):
+        if lo_.name.startswith('Sleeve'): continue
+        bm = bmesh.new(); bm.from_mesh(lo_.data); dead = []
+        for f in bm.faces:
+            c = np.array(f.calc_center_median()) - a; tt = c @ u
+            if .02 < tt < L_ + .02 and np.linalg.norm(c - u * tt) < .075: dead.append(f)
+        bmesh.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(lo_.data); bm.free(); gone += len(dead)
+    report.setdefault('stripped', {})[bone_] = gone; log('stripped clothing around', bone_, gone)
+if args.corinthian and 'helmet' in fitted_objects:
+    hel = [o for o in fitted_objects['helmet'] if not o.name.startswith('Crest')]
+    face = all_co(fitted_objects['body']); hp = all_co(hel)
+    face = face[(face[:, 1] > hp[:, 1].min() - .05) & (np.abs(face[:, 0]) < .07)]
+    plates, info_ = corinthian(hp, face, shell_material('Corinthian bronze (generated)', (.62, .43, .2), .4, 1.),
+                               shell_material('Helmet interior (generated)', (.015, .012, .01), .9, 0.))
+    for o in plates: o['part'] = 'helmet'; fitted_objects['helmet'].append(o)
+    report['corinthian'] = info_; log('corinthian face plate', info_)
+if args.press_skin and 'body' in fitted_objects and fitted_objects.get('layer'):
+    report['skin_pressed_under_layers'] = press_under(fitted_objects['body'], all_co(fitted_objects['layer']))
+    log('skin pressed under layers', report['skin_pressed_under_layers'])
+
 if args.shield_glb:
     # A finished aspis built on this same rig: its vertices rigid to shield_arm are
     # already seated in bind space. Its own materials are baked like the source's.
@@ -513,6 +566,17 @@ if 'shield' in fitted_objects:
     for i in range(16):
         sel = (sh_r >= bins[i]) & (sh_r < bins[i + 1])
         if sel.any(): back_h[i] = sh_h[sel].min()
+    # First slide the shield out (up to 4 cm, rigid on shield_arm, so it holds in
+    # every clip); pressing many vertices flat leaves a jagged forearm.
+    Bd = all_co([o for p_ in ('body', 'layer') for o in fitted_objects.get(p_, [])]) - c_
+    bh = Bd @ n_; br = np.linalg.norm(Bd - np.outer(bh, n_), axis=1)
+    lim0 = back_h[np.minimum((br / R_ * 16).astype(int), 15)] - .005
+    inb = (br < .97 * R_) & (bh > lim0) & (bh < lim0 + .12)
+    slide = float(min(.04, (bh[inb] - lim0[inb]).max())) if inb.any() else 0.
+    if slide > 0:
+        for o in fitted_objects['shield']: set_co(o, co(o) + n_ * slide)
+        back_h += slide
+    report['shield_slide_m'] = round(slide, 4)
     moved = 0
     for o in [o for p_ in ('body', 'layer') for o in fitted_objects.get(p_, [])]:
         P_ = co(o); q = P_ - c_; h = q @ n_; r = np.linalg.norm(q - np.outer(h, n_), axis=1)
@@ -817,14 +881,18 @@ if args.grade_bronze:
     metal = M_ > .5
     if metal.any():
         lum = B_[..., :3] @ np.array([.2126, .7152, .0722], np.float32); l = lum / max(float(lum[metal].mean()), 1e-3)
-        edge = np.clip((P_ - .52) * 6, 0, 1); cav = np.clip((A_ - .45) / .55, 0, 1)
-        t_ = np.clip(.10 + .50 * l * (.6 + .4 * cav) + .45 * edge, 0, 1)
-        dark, mid, light = srgb('4a2e12'), srgb('a87a36'), srgb('f2d48a')
+        # Edge wear from curvature: convex pointiness, widened by a small blur so
+        # raised rims and ridges read as polished bands, not single texels.
+        pe = np.clip((P_ - .505) * 14, 0, 1)
+        for _ in range(2): pe = np.maximum(pe, (np.roll(pe, 1, 0) + np.roll(pe, -1, 0) + np.roll(pe, 1, 1) + np.roll(pe, -1, 1)) / 4 * .9)
+        edge = pe ** .8; cav = np.clip((A_ - .45) / .55, 0, 1)
+        t_ = np.clip(.08 + .45 * l * (.55 + .45 * cav) + .55 * edge, 0, 1)
+        dark, mid, light = srgb('47290f'), srgb('a67734'), srgb('f6dc96')
         col = np.where(t_[..., None] < .5, dark + (mid - dark) * (t_[..., None] * 2), mid + (light - mid) * ((t_[..., None] - .5) * 2))
         B_[metal, :3] = col[metal]
-        R_[metal, :3] = np.clip(.46 - .22 * edge[metal] + .14 * (1 - cav[metal]), .22, .75)[:, None]
+        R_[metal, :3] = np.clip(.50 - .34 * edge[metal] + .16 * (1 - cav[metal]), .14, .8)[:, None]
         maps_img['basecolor'].pixels.foreach_set(B_.ravel()); maps_img['roughness'].pixels.foreach_set(R_.ravel())
-        report['bronze_grade'] = {'texels': int(metal.sum()), 'palette': ['4a2e12', 'a87a36', 'f2d48a']}
+        report['bronze_grade'] = {'texels': int(metal.sum()), 'palette': ['47290f', 'a67734', 'f6dc96']}
         log('bronze graded', report['bronze_grade'])
 
 if args.grade_skin and 'body' in lod0:
@@ -834,7 +902,10 @@ if args.grade_skin and 'body' in lod0:
     skin = raster_mask(uv_tris(lod0['body'])) & (M_ < .3)
     if skin.any():
         mean = B_[skin, :3].mean(0); tgt = srgb(args.grade_skin)
-        B_[skin, :3] = np.clip(tgt + (B_[skin, :3] - mean) * .9, 0, 1)
+        # Hue locked to the target (no grey cast), value from the source's own
+        # luminance, plus a little of its original colour variation.
+        lum = B_[skin, :3] @ np.array([.2126, .7152, .0722], np.float32); k_ = np.clip(lum / max(float(lum.mean()), 1e-3), .6, 1.4)
+        B_[skin, :3] = np.clip(.85 * tgt * k_[:, None] + .15 * (tgt + (B_[skin, :3] - mean)), 0, 1)
         maps_img['basecolor'].pixels.foreach_set(B_.ravel())
         report['skin_grade'] = {'texels': int(skin.sum()), 'from_srgb': (mean * 255).round().tolist(), 'to': args.grade_skin}
         log('skin graded', report['skin_grade'])

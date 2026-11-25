@@ -51,6 +51,10 @@ replace the stub with a reviewed record before shipping.
 | `--keep PART` | Keep PART at full source topology in LOD0 (thin garments shred when decimated). |
 | `--grade-bronze` | Regrade metallic texels to the painting's warm gold-brown: value from the source, darker cavities (AO), brighter convex edges (baked pointiness), rougher. |
 | `--grade-skin HEX` | Move skin texels' mean to this sRGB colour, keeping 90% of their variation. |
+| `--sleeves FRACTION` | Replace the upper-arm garment with fitted linen sleeve shells (`fit_shells.sleeve`) down to FRACTION of the upper arm. |
+| `--strip BONE` | Delete clothing around a 0 A.D. limb bone where it cannot follow the clips cleanly. |
+| `--corinthian` | Close an open helmet with a face plate: cheek and nasal guards, dark T opening, dark interior. |
+| `--press-skin` | Sink skin a few mm under any clothing or armour close above it. |
 | `--stop-after-landmarks` | Write `landmarks.blend` and stop; check the joints first on a new model. |
 
 `fit_sheet.py` renders Workbench contact sheets: the source, the fitted rest
@@ -206,3 +210,11 @@ Build: the r1 command plus `--crest-glb <painted-lane spearman.glb> --keep layer
 --lod1 2900 --grade-bronze --grade-skin a8724f` (drop `--add-crest`). Clothing now also
 takes its weights from the skin under it (after the skin's 0 A.D. transfer), so cloth and
 skin deform together. `record.mjs --squad` adds a 400 x 160 squad of three (idle, walk).
+
+## Hoplite Warrior, round r3
+
+r2 plus `--part 'drop=...|^Eye' --sleeves .45 --strip forearm_L --corinthian --press-skin
+--grade-skin b07249` (same test limits and validator flags). The shield now slides out up to
+4 cm before any body vertex is pressed behind it; pressing many forearm vertices flat had
+left a jagged forearm. Recorded with `record.mjs --squad`; the helmet close-up is
+`fit_sheet.py --clips idle,attack,death --close head` in front, three-quarter and side views.
