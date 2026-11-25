@@ -4,6 +4,7 @@ import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import {applyTeamMask} from './team-mask.mjs';
 import {cameraBasis, measureClip, fitClip} from './framing.mjs';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import * as SkeletonUtils from 'three/addons/utils/SkeletonUtils.js';
 
 const query = new URLSearchParams(location.search);
 const config = await (await fetch('../units/spearman-0ad/review.json')).json();
@@ -98,6 +99,25 @@ try {
     sample(name,time) {
       if(clipSelect.value!==name)select(name);
       current.time=time; mixer.update(0); controls.update(); renderer.render(scene,camera);
+    },
+    // A map-style squad: the unit plus two clones side by side (0.75 m apart,
+    // staggered), each on its own mixer with a phase offset, LOD0 shown.
+    squad(name, time) {
+      if(!this._squad){
+        this._squad=[];
+        for(const [dx,dz,phase] of [[-1.05,-.45,.37],[1.05,-.25,.71]]){
+          const c=SkeletonUtils.clone(gltf.scene);c.position.set(dx,0,dz);scene.add(c);
+          const m=new THREE.AnimationMixer(c);this._squad.push({c,m,phase,acts:Object.fromEntries(gltf.animations.map(a=>[a.name,m.clipAction(a)]))});
+        }
+      }
+      if(clipSelect.value!==name)select(name);
+      const d=actions[name].getClip().duration;current.time=time%d;mixer.update(0);
+      for(const s of this._squad){s.m.stopAllAction();const a=s.acts[name];a.reset().play();a.time=(time+s.phase*d)%d;s.m.update(0);}
+      const fit=fitClip(THREE,measured[name],basis,config,innerWidth/innerHeight);
+      // Map zoom frames the figures, not the full spear sweep: figure about 75% of the height.
+      extent=measured[name].figureHeight/.75;fit.target.copy(basis.up.clone().multiplyScalar(measured[name].figureHeight*.48));
+      const aspect=innerWidth/innerHeight;camera.left=-extent*aspect/2;camera.right=extent*aspect/2;camera.top=extent/2;camera.bottom=-extent/2;camera.updateProjectionMatrix();
+      target.copy(fit.target);camera.position.copy(target).addScaledVector(basis.direction,8);camera.lookAt(target);renderer.render(scene,camera);
     },
     turntable(time, duration=12) {
       if(clipSelect.value!=='idle')select('idle');

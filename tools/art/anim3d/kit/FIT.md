@@ -47,6 +47,10 @@ replace the stub with a reviewed record before shipping.
 | `--shield-glb GLB` | Use the aspis (vertices rigid to `shield_arm`) of another unit GLB on this rig instead of the source shield. |
 | `--texture-format` | `webp` (default; keeps a 1024 set well under 2 MB) or `jpeg`. |
 | `--smart-uv` | Smart-project a new atlas instead of repacking the source's own UV charts. |
+| `--crest-glb GLB` | Take the strand crest (team region `crest` plus `crest_base`) from another unit GLB on this rig, seated on this helmet's crown. |
+| `--keep PART` | Keep PART at full source topology in LOD0 (thin garments shred when decimated). |
+| `--grade-bronze` | Regrade metallic texels to the painting's warm gold-brown: value from the source, darker cavities (AO), brighter convex edges (baked pointiness), rougher. |
+| `--grade-skin HEX` | Move skin texels' mean to this sRGB colour, keeping 90% of their variation. |
 | `--stop-after-landmarks` | Write `landmarks.blend` and stop; check the joints first on a new model. |
 
 `fit_sheet.py` renders Workbench contact sheets: the source, the fitted rest
@@ -185,3 +189,20 @@ out at the knees and shoulders in the clips. Fixing this needs per-garment retop
 remeshing (or merging garment shells into the body before decimating), not a faster
 decimator. Separately, tolnaydavid's crest is a stack of translucent cards (alpha
 blend 0.18); drawn opaque it reads as a dark spiky mass.
+
+## Hoplite Warrior, round r2 (test limits, 2026-11-25)
+
+The map thread allowed, for this test only: LOD0 up to 30k triangles, LODs together under
+35k, at most 64 bones, one material, 1024 textures, about 3 MB, and KHR_mesh_quantization or
+EXT_meshopt_compression. The output uses KHR_mesh_quantization (as every LOD here does) and
+EXT_texture_webp; no meshopt. Validate with the explicit flags (the defaults are unchanged):
+
+```sh
+python3 tools/art/anim3d/validate_glb.py tools/art/anim3d/units/spearman-fit-casey/spearman.glb \
+  --lod0-max 30000 --lod-total-max 35000 --max-bytes 3000000 --max-joints 64
+```
+
+Build: the r1 command plus `--crest-glb <painted-lane spearman.glb> --keep layer --lod0 29500
+--lod1 2900 --grade-bronze --grade-skin a8724f` (drop `--add-crest`). Clothing now also
+takes its weights from the skin under it (after the skin's 0 A.D. transfer), so cloth and
+skin deform together. `record.mjs --squad` adds a 400 x 160 squad of three (idle, walk).

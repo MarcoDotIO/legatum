@@ -121,11 +121,16 @@ def image_dimensions(data):
         offset+=size
     raise ValueError('JPEG dimensions missing')
 
-def validate(path):
+# Contract limits. Per-unit test rounds may raise them only through explicit CLI
+# flags (agreed with the map thread); the defaults are the shipped contract.
+LIMITS={'lod0':10000,'lod1':3000,'lod_total':None,'bytes':2_000_000,'joints':40}
+
+def validate(path,limits=None):
+    L=dict(LIMITS,**(limits or {}))
     g=GLB(path);d=g.doc;errors=[];warnings=[]
     def require(test,message):
         if not test:errors.append(message)
-    require(Path(path).stat().st_size<2_000_000,'GLB must be under 2 MB (2000000 bytes)')
+    require(Path(path).stat().st_size<L['bytes'],f"GLB must be under {L['bytes']/1e6:g} MB ({L['bytes']} bytes)")
     require(d['asset']['version']=='2.0','Must be glTF 2.0')
     require(len(d.get('buffers',[]))==1 and 'uri' not in d['buffers'][0],'Must be self-contained')
     extras=d['asset'].get('extras',{})
@@ -141,7 +146,7 @@ def validate(path):
     require(all(nodes[i]['skin']==0 for i in skinned),'Both LODs must use skin 0')
     require('MSFT_lod' not in d.get('extensionsUsed',[]) and not any('MSFT_lod' in n.get('extensions',{}) for n in nodes),'MSFT_lod is forbidden')
     joints=set(j for skin in d.get('skins',[]) for j in skin['joints'])
-    require(all(len(skin['joints'])<=40 for skin in d.get('skins',[])),'More than 40 joints')
+    require(all(len(skin['joints'])<=L['joints'] for skin in d.get('skins',[])),f"More than {L['joints']} joints")
     require(all(len(set(skin['joints']))==len(skin['joints']) for skin in d.get('skins',[])),'Duplicate joint index')
     tris=0;team_regions=[];lod_triangles={}
     require(len(d.get('meshes',[]))==2,'Must have exactly 2 meshes')
@@ -164,7 +169,8 @@ def validate(path):
             if 'skin' in node:
                 weights=g.accessor(prim['attributes']['WEIGHTS_0'])
                 require(all(abs(sum(w)-1)<.001 for w in weights),'Weights do not sum to one')
-    for name,budget in [('spearman_LOD0',10000),('spearman_LOD1',3000)]:
+    if L['lod_total']:require(sum(lod_triangles.values())<L['lod_total'],f"LODs together must be under {L['lod_total']} triangles: {sum(lod_triangles.values())}")
+    for name,budget in [('spearman_LOD0',L['lod0']),('spearman_LOD1',L['lod1'])]:
         require(lod_triangles.get(name,0)<=budget,f'{name} triangle budget exceeded: {lod_triangles.get(name)}')
     rigid_counts={}
     # Cloak trim is required only when the unit has a cloak (a fitted model may not).
@@ -268,7 +274,13 @@ def validate(path):
     return {'valid':not errors,'glb':str(Path(path).resolve()),'bytes':Path(path).stat().st_size,'triangles':tris,'lod_triangles':lod_triangles,'joints':len(joints),'skinned_meshes':len(skinned),'atlas_px':texture_size,'texture_images':texture_images,'figure_height_m':round(height,4),'feet_centre_m':[round(v,4) for v in feet_centre],'meshes':len(d['meshes']),'materials':len(d['materials']),'packaged_primitives':draw_calls,'draw_calls_per_lod':1,'team_regions':sorted(set(team_regions)),'rigid_vertices':rigid_counts,'clips':clips,'errors':errors,'review_required':warnings}
 
 if __name__=='__main__':
-    p=argparse.ArgumentParser();p.add_argument('glb',type=Path);p.add_argument('--output',type=Path);args=p.parse_args()
-    result=validate(args.glb);out=json.dumps(result,indent=2);print(out)
+    p=argparse.ArgumentParser();p.add_argument('glb',type=Path);p.add_argument('--output',type=Path)
+    p.add_argument('--lod0-max',type=int,help='test-round override of the LOD0 triangle budget (contract: 10000)')
+    p.add_argument('--lod-total-max',type=int,help='test-round cap on LOD0+LOD1 triangles')
+    p.add_argument('--max-bytes',type=int,help='test-round GLB size cap (contract: 2000000)')
+    p.add_argument('--max-joints',type=int,help='test-round joint cap (contract: 40)')
+    args=p.parse_args()
+    limits={k:v for k,v in {'lod0':args.lod0_max,'lod_total':args.lod_total_max,'bytes':args.max_bytes,'joints':args.max_joints}.items() if v}
+    result=validate(args.glb,limits);result['limits']=dict(LIMITS,**limits);out=json.dumps(result,indent=2);print(out)
     if args.output:args.output.write_text(out+'\n')
     raise SystemExit(0 if result['valid'] else 1)

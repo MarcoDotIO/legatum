@@ -61,6 +61,10 @@ ap.add_argument('--jpeg-quality', type=int, default=80, help='quality of the shi
 ap.add_argument('--texture-format', choices=['jpeg', 'webp'], default='webp', help='shipped map encoding (WebP keeps a 1024 set under 2 MB)')
 ap.add_argument('--skin', help="regex for the object(s) that are the body's skin; other body objects are layers that follow it (default 'body')")
 ap.add_argument('--smart-uv', action='store_true', help='smart-project a new atlas instead of repacking the source UV charts')
+ap.add_argument('--crest-glb', type=Path, help="take the crest (team region 'crest' plus 'crest_base') from another unit GLB on this rig, seated on this helmet's crown")
+ap.add_argument('--keep', action='append', default=[], metavar='PART', help='keep PART at full source topology in LOD0 (thin garments shred when decimated); repeatable')
+ap.add_argument('--grade-bronze', action='store_true', help='regrade metallic texels toward warm gold-brown bronze: darker recesses, bright worn edges, rougher')
+ap.add_argument('--grade-skin', help="regrade skin texels toward this sRGB hex mean (e.g. b07850 for a tanned tone)")
 ap.add_argument('--add-crest', action='store_true', help='model a horsehair crest arc on a crestless helmet (team colour)')
 ap.add_argument('--shield-glb', type=Path, help='take the aspis (vertices rigid to shield_arm) from another unit GLB on this rig, replacing the source shield')
 ap.add_argument('--license', default='CC-BY-SA-3.0', help='licence of the combined asset (the 0 A.D. clips are CC BY-SA 3.0)')
@@ -402,6 +406,57 @@ if args.shield_glb:
                                                'sha256': hashlib.sha256(args.shield_glb.read_bytes()).hexdigest()}
     log('shield from', args.shield_glb.name, report['shield_glb'])
 
+if args.crest_glb:
+    # A finished strand crest built on this rig (painted lane): same head joint,
+    # so only the height of this helmet's crown differs. Its own atlas is baked
+    # like any source material; the crest is team colour.
+    from validate_glb import GLB as _GLB
+    cg = _GLB(args.crest_glb); cm = cg.doc['meshes'][0]; cpr = cm['primitives'][0]
+    CP = np.array(cg.accessor(cpr['attributes']['POSITION'])); CUV = np.array(cg.accessor(cpr['attributes']['TEXCOORD_0']))
+    CI = np.array([i[0] for i in cg.accessor(cpr['indices'])]).reshape(-1, 3)
+    keep_r = [r for r in cm['extras']['vertex_regions'] if r['part'] in ('crest', 'crest_base')]
+    vmask = np.zeros(len(CP), bool)
+    for r in keep_r: vmask[r['start']:r['start'] + r['count']] = True
+    tri = CI[vmask[CI].all(1)]; used = np.unique(tri); remap = -np.ones(len(CP), np.int64); remap[used] = np.arange(len(used))
+    team_v = np.zeros(len(CP), bool)
+    for r in keep_r:
+        if r['team']: team_v[r['start']:r['start'] + r['count']] = True
+    H = all_co(fitted_objects['helmet']); top = H[np.abs(H[:, 0]) < .03, 1].max() if (np.abs(H[:, 0]) < .03).any() else H[:, 1].max()
+    src_helm = cg.accessor(cpr['attributes']['POSITION'])
+    helm_r = [r for r in cm['extras']['vertex_regions'] if r['part'] == 'helmet']
+    ptop = max(src_helm[i][1] for r in helm_r for i in range(r['start'], r['start'] + r['count']) if abs(src_helm[i][0]) < .03)
+    pos = CP[used] + np.array([0, top - ptop - .004, 0])
+    if pos[:, 1].max() > args.max_height:
+        k = (args.max_height - top) / (pos[:, 1].max() - top)
+        pos[:, 1] = top + (pos[:, 1] - top) * k
+    img_bytes = None
+    tex_i = cg.doc['materials'][0]['pbrMetallicRoughness']['baseColorTexture']['index']
+    t = cg.doc['textures'][tex_i]; src_i = t.get('source', t.get('extensions', {}).get('EXT_texture_webp', {}).get('source'))
+    im_d = cg.doc['images'][src_i]; bv = cg.doc['bufferViews'][im_d['bufferView']]
+    ext = {'image/png': 'png', 'image/jpeg': 'jpg', 'image/webp': 'webp'}[im_d['mimeType']]
+    ipath = work / f'crest-source-basecolor.{ext}'; ipath.write_bytes(cg.bin[bv.get('byteOffset', 0):bv.get('byteOffset', 0) + bv['byteLength']])
+    def crest_obj(faces, name, team):
+        u2 = np.unique(faces); r2 = -np.ones(len(CP), np.int64); r2[u2] = np.arange(len(u2))
+        me = bpy.data.meshes.new(name); me.from_pydata((CP[u2] + (pos[remap[u2]] - CP[u2])).tolist(), [], r2[faces].tolist()); me.update()
+        uvl = me.uv_layers.new(name='UVMap')
+        for poly in me.polygons:
+            for li in poly.loop_indices: uvl.data[li].uv = (CUV[u2[me.loops[li].vertex_index]][0], 1 - CUV[u2[me.loops[li].vertex_index]][1])
+        m = bpy.data.materials.new(name + ' material'); m.use_nodes = True
+        bsdf = m.node_tree.nodes['Principled BSDF']; tx = m.node_tree.nodes.new('ShaderNodeTexImage'); tx.image = bpy.data.images.load(str(ipath))
+        m.node_tree.links.new(tx.outputs['Color'], bsdf.inputs['Base Color']); bsdf.inputs['Roughness'].default_value = .85 if team else .5
+        bsdf.inputs['Metallic'].default_value = 0 if team else .8
+        me.materials.append(m)
+        for poly in me.polygons: poly.use_smooth = True
+        o = bpy.data.objects.new(name, me); bpy.context.scene.collection.objects.link(o); o['part'] = 'helmet'
+        fitted_objects['helmet'].append(o)
+    tteam = team_v[tri].all(1)
+    crest_obj(tri[tteam], 'Crest horsehair (strand crest)', True)
+    if (~tteam).any(): crest_obj(tri[~tteam], 'Crest holder', False)
+    team_rules.append(('crest', r'^Crest horsehair'))
+    report['crest_from'] = {'file': args.crest_glb.name, 'sha256': hashlib.sha256(args.crest_glb.read_bytes()).hexdigest(),
+                            'vertices': int(len(used)), 'top_m': round(float(pos[:, 1].max()), 3)}
+    log('crest from', report['crest_from'])
+
 if args.add_crest:
     # A horsehair crest arc, front to back over the helmet's crown, as in the
     # Spearman painting. Generated strands texture; team colour via its material.
@@ -506,17 +561,19 @@ def joined_copy(items, name):
     x = bpy.context.view_layer.objects.active; x.name = name; return x
 
 
-def budgets(total, parts):
+def budgets(total, parts, keep=()):
     raw = {p: sum(ntris(o) for o in fitted_objects[p]) for p in parts}
+    kept = {p: raw[p] for p in parts if p in keep}
+    total -= sum(kept.values()); parts = [p for p in parts if p not in keep]
     floor = {'spear': 90, 'shield': 300, 'helmet': 250, 'cloak': 200, 'body': 1000, 'layer': 800}
     weight = {p: raw[p] ** .75 * {'body': 1.6}.get(p, 1) for p in parts}
     share = {p: max(floor.get(p, 100), total * weight[p] / sum(weight.values())) for p in parts}
     scale = total / sum(share.values())
-    return {p: int(share[p] * scale) for p in parts}, raw
+    return dict({p: int(share[p] * scale) for p in parts}, **kept), raw
 
 
 parts = [p for p in PART_ORDER if p in fitted_objects]
-b0, raw = budgets(args.lod0, parts)
+b0, raw = budgets(args.lod0, parts, set(args.keep))
 lod0 = {}
 for p in parts:
     o = joined_copy(fitted_objects[p], f'LOD0-{p}'); o['part'] = p
@@ -557,17 +614,18 @@ for p in parts:
     lod1[p] = o
 
 
-def enforce(lod, total):
+def enforce(lod, total, keep=()):
     # Many small loose pieces resist collapse decimation; take the excess from
     # the parts with the most triangles until the LOD fits its budget.
     for _ in range(6):
         have = sum(ntris(o) for o in lod.values())
         if have <= total: return
-        for o in sorted(lod.values(), key=ntris, reverse=True)[:3]:
-            apply_mod(o, 'DECIMATE', ratio=max(.3, 1 - (have - total) * 1.1 / max(1, sum(ntris(x) for x in sorted(lod.values(), key=ntris, reverse=True)[:3]))), use_collapse_triangulate=True)
+        big = sorted([o for p, o in lod.items() if p not in keep], key=ntris, reverse=True)[:3]
+        for o in big:
+            apply_mod(o, 'DECIMATE', ratio=max(.3, 1 - (have - total) * 1.1 / max(1, sum(map(ntris, big)))), use_collapse_triangulate=True)
 
 
-enforce(lod0, args.lod0); enforce(lod1, args.lod1)
+enforce(lod0, args.lod0, set(args.keep)); enforce(lod1, args.lod1)
 report['triangles'] = {'source': raw, 'lod0': {p: ntris(o) for p, o in lod0.items()}, 'lod1': {p: ntris(o) for p, o in lod1.items()}}
 log('lods', report['triangles'])
 
@@ -610,6 +668,10 @@ for lod in (lod0, lod1):
             o.vertex_groups[bone].add(list(range(len(o.data.vertices))), 1., 'REPLACE')
         elif p == 'cloak' and donors['cloak']:
             transfer(o, donors['cloak'])
+        elif p == 'layer' and 'body' in lod:
+            # Clothing takes the weights of the skin under it (already transferred
+            # from 0 A.D.), so cloth and skin deform together and do not cross.
+            transfer(o, lod['body'])
         else:
             for chain in order: transfer(o, donors[chain], 'grp_' + chain)
         for g in list(o.vertex_groups):
@@ -712,6 +774,70 @@ for chan, name in (('Base Color', 'basecolor'), ('Roughness', 'roughness'), ('Me
 
 def px(im): return np.array(im.pixels[:], dtype=np.float32).reshape(N, N, 4)
 
+
+def raster_mask(tris):
+    """Texels covered by UV triangles (each a list of three (u, v))."""
+    mask = np.zeros((N, N), bool)
+    for tri in tris:
+        t = np.array(tri) * N; lo = np.clip(np.floor(t.min(0)).astype(int), 0, N - 1); hi = np.clip(np.ceil(t.max(0)).astype(int) + 1, 0, N)
+        if (hi - lo).min() <= 0: continue
+        yy, xx = np.mgrid[lo[1]:hi[1], lo[0]:hi[0]] + .5
+        a, b, c = t; d = (b[1] - c[1]) * (a[0] - c[0]) + (c[0] - b[0]) * (a[1] - c[1])
+        if abs(d) < 1e-12: continue
+        w1 = ((b[1] - c[1]) * (xx - c[0]) + (c[0] - b[0]) * (yy - c[1])) / d
+        w2 = ((c[1] - a[1]) * (xx - c[0]) + (a[0] - c[0]) * (yy - c[1])) / d
+        mask[lo[1]:hi[1], lo[0]:hi[0]] |= (w1 >= -.02) & (w2 >= -.02) & (1 - w1 - w2 >= -.02)
+    return mask
+
+
+def uv_tris(o):
+    me = o.data; me.calc_loop_triangles(); uvl = me.uv_layers['atlas'].data
+    return [[tuple(uvl[li].uv) for li in t.loops] for t in me.loop_triangles]
+
+
+def srgb(hexstr): return np.array([int(hexstr[i:i + 2], 16) / 255 for i in (0, 2, 4)], np.float32)
+
+
+if args.grade_bronze:
+    # Painted bronze (spearman-panel.png): warm gold-brown, not glossy copper.
+    # Value comes from the source's own luminance, darkened in cavities (AO) and
+    # lifted on convex edges (Cycles pointiness of the low mesh: worn, polished).
+    pm = bpy.data.materials.new('fit pointiness'); pm.use_nodes = True; nt = pm.node_tree
+    for n_ in list(nt.nodes): nt.nodes.remove(n_)
+    geo = nt.nodes.new('ShaderNodeNewGeometry'); em = nt.nodes.new('ShaderNodeEmission'); out_ = nt.nodes.new('ShaderNodeOutputMaterial')
+    nt.links.new(geo.outputs['Pointiness'], em.inputs['Color']); nt.links.new(em.outputs[0], out_.inputs['Surface'])
+    ptex = nt.nodes.new('ShaderNodeTexImage'); pimg = img('pointiness', True); ptex.image = pimg; nt.nodes.active = ptex
+    bake.use_selected_to_active = False
+    for i, p in enumerate(parts):
+        o = lod0[p]; o.data.materials[0] = pm; active(o); bpy.ops.object.bake(type='EMIT', use_clear=i == 0)
+        o.data.materials[0] = receiver
+    bake.use_selected_to_active = True
+    B_ = px(maps_img['basecolor']); M_ = px(maps_img['metallic'])[..., 0]; A_ = px(maps_img['ao'])[..., 0]
+    R_ = px(maps_img['roughness']); P_ = px(pimg)[..., 0]
+    metal = M_ > .5
+    if metal.any():
+        lum = B_[..., :3] @ np.array([.2126, .7152, .0722], np.float32); l = lum / max(float(lum[metal].mean()), 1e-3)
+        edge = np.clip((P_ - .52) * 6, 0, 1); cav = np.clip((A_ - .45) / .55, 0, 1)
+        t_ = np.clip(.10 + .50 * l * (.6 + .4 * cav) + .45 * edge, 0, 1)
+        dark, mid, light = srgb('4a2e12'), srgb('a87a36'), srgb('f2d48a')
+        col = np.where(t_[..., None] < .5, dark + (mid - dark) * (t_[..., None] * 2), mid + (light - mid) * ((t_[..., None] - .5) * 2))
+        B_[metal, :3] = col[metal]
+        R_[metal, :3] = np.clip(.46 - .22 * edge[metal] + .14 * (1 - cav[metal]), .22, .75)[:, None]
+        maps_img['basecolor'].pixels.foreach_set(B_.ravel()); maps_img['roughness'].pixels.foreach_set(R_.ravel())
+        report['bronze_grade'] = {'texels': int(metal.sum()), 'palette': ['4a2e12', 'a87a36', 'f2d48a']}
+        log('bronze graded', report['bronze_grade'])
+
+if args.grade_skin and 'body' in lod0:
+    # Warmer, tanned skin: match the skin texels' mean to the target colour,
+    # keeping 90% of their own variation (pores, shading-free detail).
+    B_ = px(maps_img['basecolor']); M_ = px(maps_img['metallic'])[..., 0]
+    skin = raster_mask(uv_tris(lod0['body'])) & (M_ < .3)
+    if skin.any():
+        mean = B_[skin, :3].mean(0); tgt = srgb(args.grade_skin)
+        B_[skin, :3] = np.clip(tgt + (B_[skin, :3] - mean) * .9, 0, 1)
+        maps_img['basecolor'].pixels.foreach_set(B_.ravel())
+        report['skin_grade'] = {'texels': int(skin.sum()), 'from_srgb': (mean * 255).round().tolist(), 'to': args.grade_skin}
+        log('skin graded', report['skin_grade'])
 
 orm = bpy.data.images.new('orm', N, N, alpha=False); orm.colorspace_settings.name = 'Non-Color'
 o_px = np.ones((N, N, 4), np.float32)
@@ -854,7 +980,11 @@ maps_img['basecolor'].pixels.foreach_set(bp.ravel()); maps_img['basecolor'].upda
 report['team_neutralised_texels'] = {k: len(v) for k, v in team_uv.items()}
 images = []
 for name, im in (('basecolor', maps_img['basecolor']), ('normal', maps_img['normal']), ('orm', orm)):
-    small = im.copy(); small.scale(args.ship_size, args.ship_size)
+    # From the in-memory pixels: Image.copy() reloads the saved master and would
+    # drop the grades and the neutral team texels applied after the bake.
+    small = bpy.data.images.new(f'ship {name}', N, N, alpha=False); small.colorspace_settings.name = im.colorspace_settings.name
+    small.pixels.foreach_set(np.array(im.pixels[:], dtype=np.float32)); small.scale(args.ship_size, args.ship_size)
+    im.filepath_raw = str(work / f'{name}-master-final.png'); im.file_format = 'PNG'; im.save()
     ext, fmt, mime = {'jpeg': ('jpg', 'JPEG', 'image/jpeg'), 'webp': ('webp', 'WEBP', 'image/webp')}[args.texture_format]
     path = work / f'{name}-{args.ship_size}.{ext}'
     small.filepath_raw = str(path); small.file_format = fmt

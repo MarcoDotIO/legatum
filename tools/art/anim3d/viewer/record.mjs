@@ -141,6 +141,19 @@ try {
     ${['idle','attack'].map(c=>row('160',c,160).replace(/style="display:flex/,'style="display:flex;flex-wrap:wrap')).join('')}</body></html>`);
   const sheetPath=join(out,`${prefix}-sheet-48.png`);await sheet.screenshot({path:sheetPath,fullPage:true});await sheet.close();
   receipts.sheet48={output:sheetPath};console.log(sheetPath);
+  // Squad of three at map size (160 px tall frame), idle and walk.
+  if(args.includes('--squad')) {
+    await page.setViewportSize({width:400,height:160});
+    for(const clip of ['idle','walk']) {
+      const dir=resolve(out,`.${prefix}-viewer-frames`,assetSha256,`squad-${clip}`);await mkdir(dir,{recursive:true});
+      const count=Math.round(state.clips[clip]*30);
+      for(let i=0;i<count;i++){await page.evaluate(({clip,t})=>window.review.squad(clip,t),{clip,t:i/30});await page.locator('canvas').screenshot({path:join(dir,`${String(i).padStart(4,'0')}.png`)});}
+      const output=join(out,`${prefix}-squad-${clip}-160.mp4`);
+      const enc=spawnSync('ffmpeg',['-y','-loglevel','error','-framerate','30','-stream_loop','2','-i',join(dir,'%04d.png'),'-frames:v',String(count*3),'-c:v','libx264','-crf','16','-pix_fmt','yuv420p','-movflags','+faststart',output],{stdio:'inherit'});
+      if(enc.status!==0)throw new Error(`ffmpeg failed for squad ${clip}`);
+      receipts[`squad-${clip}`]={output,frames:count,fps:30,repeats:3,size:'400x160'};console.log(output);
+    }
+  }
   if(errors.length)throw new Error(errors.join('\n'));
   await writeFile(join(out,`${prefix}-viewer-validation.json`),JSON.stringify({assetSha256,clips:receipts,framingNotes},null,2));
 } finally {
