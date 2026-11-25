@@ -263,3 +263,22 @@ def heal(V, out, F, rings=3, iters=40, extra=None):
         avg = acc / np.maximum(deg, 1)[:, None]
         D[region] = .5 * D[region] + .5 * avg[region]
     return V + D, int(torn.sum())
+
+
+def vertex_normals(V, F):
+    n = np.cross(V[F[:, 1]] - V[F[:, 0]], V[F[:, 2]] - V[F[:, 0]])
+    out = np.zeros_like(V)
+    for k in range(3): np.add.at(out, F[:, k], n)
+    return out / np.maximum(np.linalg.norm(out, axis=1, keepdims=True), 1e-12)
+
+
+def keep_clearance(Vs, Fs, fit_s, Vl, fit_l, near, floor=.004):
+    """Layer vertices that sat outside the skin stay outside it after fitting:
+    push them back along the fitted skin normal to their source clearance."""
+    n0 = vertex_normals(Vs, Fs)[near]; n1 = vertex_normals(fit_s, Fs)[near]
+    o0 = ((Vl - Vs[near]) * n0).sum(1); o1 = ((fit_l - fit_s[near]) * n1).sum(1)
+    # Restore at most 1 cm of clearance: enough to stop skin showing through, but a
+    # cape or skirt hanging well off the body is left where the blend put it.
+    want = np.clip(o0, floor, .01); push = (o0 > 0) & (o1 < want)
+    fit_l = fit_l.copy(); fit_l[push] += n1[push] * (want - o1)[push, None]
+    return fit_l, int(push.sum())

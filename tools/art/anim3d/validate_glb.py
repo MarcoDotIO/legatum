@@ -101,7 +101,13 @@ class GLB:
 def image_dimensions(data):
     if data[:8]==b'\x89PNG\r\n\x1a\n':return (*struct.unpack_from('>II',data,16),data[24])
     if data[:4]==b'RIFF' and data[8:12]==b'WEBP':
-        assert data[12:16]==b'VP8 ','Expected non-animated lossy WebP'
+        kind=data[12:16]
+        if kind==b'VP8X':  # extended header (Blender writes it); 24-bit sizes minus one
+            assert b'ANIM' not in data[:64],'Animated WebP not allowed'
+            return 1+int.from_bytes(data[24:27],'little'),1+int.from_bytes(data[27:30],'little'),8
+        if kind==b'VP8L':
+            bits=int.from_bytes(data[21:25],'little');return 1+(bits&0x3fff),1+((bits>>14)&0x3fff),8
+        assert kind==b'VP8 ','Expected a still WebP'
         width,height=struct.unpack_from('<HH',data,26);return width&0x3fff,height&0x3fff,8
     assert data[:2]==b'\xff\xd8','Invalid PNG/JPEG/WebP'
     offset=2

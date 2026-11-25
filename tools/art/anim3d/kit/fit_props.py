@@ -55,9 +55,19 @@ def classify(pieces, height, overrides):
     for part in ('spear', 'shield'):
         core = [p for p in pieces if p['part'] == part]
         if not core: continue
-        pts = np.concatenate([p['points'] for p in core]); c, vt, e = pca(pts)
+        main = max(core, key=lambda p: np.ptp(p['points'], 0).max())
+        pts = main['points']; c, vt, e = pca(pts)
+        if part == 'spear':
+            # Slings and loose straps carried with a spear swing under the floor
+            # once the spear is seated: keep only what lies along the shaft.
+            for p in core:
+                q = p['points'] - c; along = q @ vt[0]
+                if (np.linalg.norm(q - np.outer(along, vt[0]), axis=1) > .04 * height).mean() > .5: p['part'] = 'drop'
+        # Accessories inside the prop's envelope join it only from the same source
+        # object: a shield held across the chest would otherwise swallow the armour.
+        objs = {p['object'] for p in core}
         for p in pieces:
-            if p['part'] is not None or np.ptp(p['points'], 0).max() > .4 * height: continue
+            if p['part'] is not None or p['object'] not in objs or np.ptp(p['points'], 0).max() > .4 * height: continue
             q = p['points'] - c
             if part == 'spear':
                 along = q @ vt[0]; radial = np.linalg.norm(q - np.outer(along, vt[0]), axis=1)
@@ -71,15 +81,17 @@ def classify(pieces, height, overrides):
     return pieces
 
 
-def find_helmet(pieces, head, head_tip, metallic_faces=None):
-    """Loose parts around the head become the helmet (crest included)."""
+def find_helmet(pieces, head, head_tip, neck):
+    """Loose parts around the head and above the neck become the helmet (crest included)."""
     r = max(np.linalg.norm(head_tip - head) * 1.35, .12)
     centre = head + (head_tip - head) * .6
+    up = (head_tip - neck) / np.linalg.norm(head_tip - neck)
     found = []
     for p in pieces:
-        if p['part'] != 'body': continue
+        if p['part'] not in ('body', 'layer'): continue
         d = np.linalg.norm(p['points'] - centre, axis=1)
-        if (d < r * 1.8).mean() > .9 and len(p['points']) < .5 * sum(len(q['points']) for q in pieces if q['part'] == 'body'):
+        above = ((p['points'] - neck) @ up > 0).mean()
+        if (d < r * 1.6).mean() > .9 and above > .9 and len(p['points']) < .5 * sum(len(q['points']) for q in pieces if q['part'] in ('body', 'layer')):
             p['part'] = 'helmet'; found.append(p)
     return found
 

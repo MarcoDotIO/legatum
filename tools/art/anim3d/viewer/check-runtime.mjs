@@ -19,7 +19,10 @@ globalThis.ProgressEvent=class {constructor(type,data){this.type=type;Object.ass
 globalThis.createImageBitmap=async blob=>{
   const b=Buffer.from(await blob.arrayBuffer());let width,height;
   if(b[0]===137){width=b.readUInt32BE(16);height=b.readUInt32BE(20);}
-  else if(b.toString('ascii',0,4)==='RIFF'){assert.equal(b.toString('ascii',12,16),'VP8 ');width=b.readUInt16LE(26)&0x3fff;height=b.readUInt16LE(28)&0x3fff;}
+  else if(b.toString('ascii',0,4)==='RIFF'){const kind=b.toString('ascii',12,16);
+    if(kind==='VP8X'){width=1+b.readUIntLE(24,3);height=1+b.readUIntLE(27,3);}
+    else if(kind==='VP8L'){const bits=b.readUInt32LE(21);width=1+(bits&0x3fff);height=1+((bits>>14)&0x3fff);}
+    else {assert.equal(kind,'VP8 ');width=b.readUInt16LE(26)&0x3fff;height=b.readUInt16LE(28)&0x3fff;}}
   else {assert.equal(b.readUInt16BE(0),0xffd8);let offset=2;
     while(offset<b.length){assert.equal(b[offset],255);while(b[offset]===255)offset++;const marker=b[offset++];const size=b.readUInt16BE(offset);
       if([0xc0,0xc1,0xc2].includes(marker)){height=b.readUInt16BE(offset+3);width=b.readUInt16BE(offset+5);break;}offset+=size;}

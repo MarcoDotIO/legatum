@@ -7,6 +7,20 @@ the approved round by construction. Adapted from the painted lane's packager.
 import copy, hashlib, json, struct
 
 
+def plain_webp(raw):
+    """Keep only the bitstream chunk of a still WebP. Blender writes an extended
+    (VP8X) file with a colour profile, which the Khronos validator flags."""
+    if raw[:4] != b'RIFF' or raw[12:16] != b'VP8X': return raw
+    pos = 12
+    while pos < len(raw):
+        tag = raw[pos:pos + 4]; size = struct.unpack_from('<I', raw, pos + 4)[0]
+        if tag in (b'VP8 ', b'VP8L'):
+            chunk = raw[pos:pos + 8 + size + (size & 1)]
+            return b'RIFF' + struct.pack('<I', 4 + len(chunk)) + b'WEBP' + chunk
+        pos += 8 + size + (size & 1)
+    return raw
+
+
 def pack(g, meshes, images, out, credit, license_id='CC-BY-SA-3.0', extras=None, material_name='Fitted unit'):
     """meshes: [{'name', 'attrs': {POSITION, NORMAL, TANGENT, TEXCOORD_0, JOINTS_0, WEIGHTS_0, COLOR_0}, 'indices', 'regions'}]
     images: [(name, mime, bytes)] in the order basecolor, normal, orm."""
@@ -76,8 +90,14 @@ def pack(g, meshes, images, out, credit, license_id='CC-BY-SA-3.0', extras=None,
     d['extensionsUsed'] = ['KHR_mesh_quantization']; d['extensionsRequired'] = ['KHR_mesh_quantization']
     d['images'] = []; d['textures'] = []
     for name, mime, raw in images:
+        if mime == 'image/webp': raw = plain_webp(raw)
         d['images'].append({'name': name, 'mimeType': mime, 'bufferView': view(raw)})
-        d['textures'].append({'source': len(d['images']) - 1, 'sampler': 0})
+        if mime == 'image/webp':
+            d['textures'].append({'extensions': {'EXT_texture_webp': {'source': len(d['images']) - 1}}, 'sampler': 0})
+            for key in ('extensionsUsed', 'extensionsRequired'):
+                if 'EXT_texture_webp' not in d[key]: d[key].append('EXT_texture_webp')
+        else:
+            d['textures'].append({'source': len(d['images']) - 1, 'sampler': 0})
     d['samplers'] = [{'magFilter': 9729, 'minFilter': 9987, 'wrapS': 33071, 'wrapT': 33071}]
     team = d['asset']['extras']['team']
     d['materials'] = [{'name': material_name,

@@ -42,6 +42,11 @@ replace the stub with a reviewed record before shipping.
 | `--lod0 / --lod1` | Triangle budgets (defaults 9,600 / 2,900, under the 10k / 3k contract). |
 | `--bake-size / --ship-size / --jpeg-quality` | 2048 masters, 1024 shipped, quality 88 by default. |
 | `--max-height` | Ceiling for the crest (default 1.93 m; the contract allows 1.65 to 1.95). |
+| `--skin REGEX` | Objects that are the body's skin (default `body`); every other body object is a clothing layer that takes the unpose of the skin under it, keeps 1 cm clearance, and is baked on its own. |
+| `--add-crest` | Model a horsehair crest arc on a crestless helmet (team colour). |
+| `--shield-glb GLB` | Use the aspis (vertices rigid to `shield_arm`) of another unit GLB on this rig instead of the source shield. |
+| `--texture-format` | `webp` (default; keeps a 1024 set well under 2 MB) or `jpeg`. |
+| `--smart-uv` | Smart-project a new atlas instead of repacking the source's own UV charts. |
 | `--stop-after-landmarks` | Write `landmarks.blend` and stop; check the joints first on a new model. |
 
 `fit_sheet.py` renders Workbench contact sheets: the source, the fitted rest
@@ -148,3 +153,35 @@ Elbows and knees show no candy-wrapping in any clip. Review files:
    `record.mjs --glb <out> --prefix spearman-fit-<model>`.
 5. Model #2 (404k triangles) needs no change: decimation and the bake use the
    full-resolution fit; expect a few minutes.
+
+## Real models, round r1 (2026-11-25)
+
+```sh
+S=~/LegatumRuns/anim-pilot/premium-source
+# Hoplite Warrior (Casey DeDore): glTF, action pose, no crest, bull hoplon swapped for the PBR-lane aspis
+fit_source_to_0ad.py -- --source $S/hoplite-warrior/scene.gltf \
+  --out tools/art/anim3d/units/spearman-fit-casey/spearman.glb --work ~/LegatumRuns/anim-pilot/fit/casey \
+  --credit 'Hoplite Warrior by Casey DeDore (Sketchfab), CC BY 4.0' \
+  --part 'drop=Pedestal|Rain|Background|Phalanx|Ground|Sword' --part 'spear=^Spear' --part 'shield=^Shield' \
+  --shield-glb <pbr-lane spearman.glb> --add-crest --jpeg-quality 72
+# Hoplite (tolnaydavid): 23 meshes, ~404k triangles, near A-pose, cm units
+fit_source_to_0ad.py -- --source $S/hoplite-tolnay/scene.gltf \
+  --out tools/art/anim3d/units/spearman-fit-tolnay/spearman.glb --work ~/LegatumRuns/anim-pilot/fit/tolnay \
+  --credit 'Hoplite by tolnaydavid (Sketchfab), CC BY 4.0' \
+  --part 'drop=^Sword|^Spear_straps' --part 'spear=^Spear_low' --part 'shield=^Shield|^wire_low' \
+  --part 'helmet=^Helmet' --skin '^Body_low' --team 'crest=Helmet_fur' --jpeg-quality 72
+```
+
+Both pass `validate_glb.py` and Khronos (0/0/0/0) at 1.26 MB and 1.40 MB, and their clips
+and inverse binds are byte-identical to round 6. Record with
+`record.mjs --glb <out> --prefix spearman-fit-<model>-r1`. It now also writes the 160 px
+sprite MP4s at the legacy rates and `<prefix>-sheet-48.png`, and it no longer fails a clip
+whose full extent (spear, fall) is taller than the figure.
+
+**What still blocks a premium result** (both models, clearer on tolnaydavid's):
+decimating many thin, layered garment shells (sleeves, pteruges, cape, skirt) by 6x to 40x
+to reach 10k triangles shreds them into jagged flaps at close range, and those flaps poke
+out at the knees and shoulders in the clips. Fixing this needs per-garment retopology or
+remeshing (or merging garment shells into the body before decimating), not a faster
+decimator. Separately, tolnaydavid's crest is a stack of translucent cards (alpha
+blend 0.18); drawn opaque it reads as a dark spiky mass.
