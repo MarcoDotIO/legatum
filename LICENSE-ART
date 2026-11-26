@@ -42,6 +42,22 @@ What this does not cover
 - Fonts (Cormorant and Libre Franklin, SIL Open Font License 1.1), installed from npm through
   `@fontsource` and not stored in this repository.
 - Historical peoples, places and names depicted in the game, which are public-domain history.
+- Animated unit art built from 0 A.D. assets. Some animated units are made from meshes,
+  skeletons, props and animations by Wildfire Games, from the open-source game 0 A.D.
+  (https://play0ad.com), source revision 61a3b9507d974084e6badb88a0826bd89a6d5b8b, licensed
+  under the Creative Commons Attribution-ShareAlike 3.0 licence (CC BY-SA 3.0,
+  https://creativecommons.org/licenses/by-sa/3.0/). We retargeted, repainted and rendered them
+  into sprite sheets. Those sprite sheets, and any of their source files in this repository, are
+  licensed under CC BY-SA 3.0, not CC BY 4.0. Credit: "0 A.D. art by Wildfire Games, CC BY-SA 3.0;
+  adapted for Legatum". Each such unit's folder has a PROVENANCE.md naming the exact 0 A.D. files
+  used and what we changed.
+- The 3D unit models of the 3D map (app/public/models/units/). Each is built on the same 0 A.D.
+  skeleton and animations and is licensed under CC BY-SA 3.0 as a whole. The Spearman
+  (spearman.glb) also adapts "Hoplite Warrior" by Casey DeDore
+  (https://sketchfab.com/3d-models/hoplite-warrior-62d5291dd0454cb28a29a37056a59013), licensed
+  under CC BY 4.0. Credit: "Hoplite Warrior by Casey DeDore (Sketchfab), CC BY 4.0; animation
+  and rig: 0 A.D. art by Wildfire Games, CC BY-SA 3.0; adapted for Legatum". The sources used and
+  what we changed are in app/public/models/units/PROVENANCE-<model>.md.
 
 How the art was made
 --------------------

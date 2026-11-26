@@ -1,0 +1,8 @@
+# 3D unit models on the map: metal needs an environment, LOD by distance, key by art slug (2026-11-26)
+
+- **Metal renders black without an environment map.** A glTF bronze helmet or shield (metalness near 1) reflects only its surroundings; under the 3D map's hemisphere and sun lights alone it came out black. Unit materials now get a small PMREM `RoomEnvironment` (`MapScene.unitEnv`, intensity 0.7) on the model materials only, so the terrain's lighting is unchanged.
+- **LOD switch.** The contract-v2 GLB carries `<unit>_LOD0` (~30k triangles) and `<unit>_LOD1` (~3k) on one skeleton. The map shows LOD0 only when the camera distance is under 4 and only on the 16 figures nearest the view centre; all other figures show LOD1. One Spearman squad (three figures) at LOD0 is about 90k triangles, so the cap matters.
+- **Team colour op.** The contract's mask texels are painted neutral and multiplied by the team colour (`baseColor *= mix(1, team, COLOR_0.r)`). GLTFLoader turns on `vertexColors` when COLOR_0 is present, which would multiply the whole albedo by the mask. The team material replaces `color_fragment`, so the mask only tints.
+- **Key models by art slug, not unit kind.** Aztec and Spartan Spearmen have their own paintings (Eagle Warrior, Spartan hoplite). Keying `MODELS` by `UnitKind` would have put a Greek hoplite on an Aztec unit. `mapUnitArtSlug` gives the same slug that picks the painting.
+- **Size.** A figure 0.17 hex tall read much smaller than the painted sprites (0.3 including the base); 0.22 sits closer.
+- **Loader.** three r170's GLTFLoader reads KHR_mesh_quantization and EXT_texture_webp with no extra decoder.
