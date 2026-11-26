@@ -218,3 +218,15 @@ r2 plus `--part 'drop=...|^Eye' --sleeves .45 --strip forearm_L --corinthian --p
 4 cm before any body vertex is pressed behind it; pressing many forearm vertices flat had
 left a jagged forearm. Recorded with `record.mjs --squad`; the helmet close-up is
 `fit_sheet.py --clips idle,attack,death --close head` in front, three-quarter and side views.
+
+## Hoplite Warrior, round r4 (LOD1 garments)
+
+r3's LOD1 had lost every garment: decimated hard, the coarse clothing sank under the
+less-decimated skin. LOD1 now drops skin hidden under clothing first (faces whose
+vertices all lie within 3 cm under a garment), budgets garments ahead of skin
+(weights layer 1.8, cloak 1.0, body 1.0, helmet 0.6, shield 0.35, spear 0.12), and never
+takes the excess from garments. Garments export as the region part `garment`, and
+`validate_glb.py` now fails a LOD1 that lacks a part LOD0 has or keeps under half of a
+part's surface (30% for `body`, whose hidden skin may go). `record.mjs --lod-compare` writes
+`<prefix>-lod-compare.png`. The face plate is hammered dark bronze before the grade; the
+aspis keeps the device only on its outer face, its inner face plain bronze.

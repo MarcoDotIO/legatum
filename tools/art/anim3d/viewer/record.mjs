@@ -141,6 +141,24 @@ try {
     ${['idle','attack'].map(c=>row('160',c,160).replace(/style="display:flex/,'style="display:flex;flex-wrap:wrap')).join('')}</body></html>`);
   const sheetPath=join(out,`${prefix}-sheet-48.png`);await sheet.screenshot({path:sheetPath,fullPage:true});await sheet.close();
   receipts.sheet48={output:sheetPath};console.log(sheetPath);
+  // LOD0 vs LOD1, close (512) and at map size (160), idle frame 0 and walk mid-stride.
+  if(args.includes('--lod-compare')) {
+    const shots={};
+    for(const lod of ['spearman_LOD0','spearman_LOD1']) for(const [size,clip,t] of [[512,'idle',0],[160,'idle',0],[160,'walk',.4]]) {
+      await page.setViewportSize({width:size,height:size});await page.evaluate(n=>window.review.lod(n),lod);
+      await page.evaluate(({clip,t})=>window.review.sample(clip,t),{clip,t});
+      shots[`${lod}-${size}-${clip}`]=(await page.locator('canvas').screenshot()).toString('base64');
+    }
+    await page.evaluate(()=>window.review.lod('spearman_LOD0'));
+    const cmp=await browser.newPage({viewport:{width:1400,height:600},deviceScaleFactor:1});
+    const cell=(k,px)=>`<img style="width:${px}px;height:${px}px" src="data:image/png;base64,${shots[k]}">`;
+    await cmp.setContent(`<html><body style="margin:0;background:#f8f4e8;color:#493b2a;font:13px sans-serif"><div style="display:flex;gap:16px;padding:8px">
+      ${['spearman_LOD0','spearman_LOD1'].map(l=>`<div><div>${l} (${l.endsWith('0')?'close':'normal zoom'})</div>${cell(l+'-512-idle',512)}<div style="display:flex;gap:4px">${cell(l+'-160-idle',160)}${cell(l+'-160-walk',160)}</div></div>`).join('')}
+      </div></body></html>`);
+    await cmp.locator('img').evaluateAll(ims=>Promise.all(ims.map(i=>i.decode())));
+    const p2=join(out,`${prefix}-lod-compare.png`);await cmp.screenshot({path:p2,fullPage:true});await cmp.close();
+    receipts.lodCompare={output:p2};console.log(p2);
+  }
   // Squad of three at map size (160 px tall frame), idle and walk.
   if(args.includes('--squad')) {
     await page.setViewportSize({width:400,height:160});

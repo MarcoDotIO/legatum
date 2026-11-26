@@ -425,7 +425,9 @@ if args.corinthian and 'helmet' in fitted_objects:
     hel = [o for o in fitted_objects['helmet'] if not o.name.startswith('Crest')]
     face = all_co(fitted_objects['body']); hp = all_co(hel)
     face = face[(face[:, 1] > hp[:, 1].min() - .05) & (np.abs(face[:, 0]) < .07)]
-    plates, info_ = corinthian(hp, face, shell_material('Corinthian bronze (generated)', (.62, .43, .2), .4, 1.),
+    rng_ = np.random.default_rng(11); ham = np.kron(rng_.random((32, 32)), np.ones((8, 8)))
+    plates, info_ = corinthian(hp, face, shell_material('Corinthian bronze (generated)', None, .4, 1.,
+                               lambda u, v: np.stack([.36 + 0 * u, .24 + 0 * u, .10 + 0 * u], -1) * (.8 + .3 * ham[..., None])),
                                shell_material('Helmet interior (generated)', (.015, .012, .01), .9, 0.))
     for o in plates: o['part'] = 'helmet'; fitted_objects['helmet'].append(o)
     report['corinthian'] = info_; log('corinthian face plate', info_)
@@ -670,10 +672,28 @@ bpy.ops.uv.average_islands_scale()
 bpy.ops.uv.pack_islands(margin=.003, rotate=True, shape_method='AABB', merge_overlap=False)
 bpy.ops.object.mode_set(mode='OBJECT')
 report['uv'] = 'source charts repacked' if keep_src_uv else 'smart projection'
-b1, _ = budgets(args.lod1, parts)
+# LOD1 is what players see at normal zoom: garments must survive. Skin hidden
+# under clothing or armour goes first (it only pokes through a coarse garment),
+# then the budget favours garments over skin.
+lod1_weight = {'layer': 1.8, 'cloak': 1.0, 'body': 1.0, 'helmet': .6, 'shield': .35, 'spear': .12}
+wsum_ = sum(lod1_weight.get(p, .5) for p in parts)
+b1 = {p: int(args.lod1 * lod1_weight.get(p, .5) / wsum_) for p in parts}
+cover = [lod0[p] for p in ('layer', 'cloak') if p in lod0]
 lod1 = {}
 for p in parts:
     o = joined_copy([lod0[p]], f'LOD1-{p}'); o['part'] = p
+    if p == 'body' and cover:
+        Lp = np.concatenate([co(c) for c in cover]); me = o.data; n = len(me.vertices)
+        P = co(o); Nn = np.empty(n * 3); me.vertices.foreach_get('normal', Nn); Nn = Nn.reshape(-1, 3)
+        hidden = np.zeros(n, bool)
+        for k in range(0, n, 512):
+            d2 = ((P[k:k + 512, None] - Lp[None]) ** 2).sum(2); j = d2.argmin(1)
+            d = np.sqrt(d2[np.arange(len(j)), j]); up = ((Lp[j] - P[k:k + 512]) * Nn[k:k + 512]).sum(1)
+            hidden[k:k + 512] = (d < .03) & (up > -.004)
+        bm = bmesh.new(); bm.from_mesh(me); bm.verts.ensure_lookup_table()
+        dead = [f for f in bm.faces if all(hidden[v.index] for v in f.verts)]
+        bmesh.ops.delete(bm, geom=dead, context='FACES'); bm.to_mesh(me); bm.free()
+        report['lod1_hidden_skin_faces_removed'] = len(dead)
     if ntris(o) > b1[p]: apply_mod(o, 'DECIMATE', ratio=b1[p] / ntris(o), use_collapse_triangulate=True)
     lod1[p] = o
 
@@ -689,7 +709,7 @@ def enforce(lod, total, keep=()):
             apply_mod(o, 'DECIMATE', ratio=max(.3, 1 - (have - total) * 1.1 / max(1, sum(map(ntris, big)))), use_collapse_triangulate=True)
 
 
-enforce(lod0, args.lod0, set(args.keep)); enforce(lod1, args.lod1)
+enforce(lod0, args.lod0, set(args.keep)); enforce(lod1, args.lod1, {'layer', 'cloak'})
 report['triangles'] = {'source': raw, 'lod0': {p: ntris(o) for p, o in lod0.items()}, 'lod1': {p: ntris(o) for p, o in lod1.items()}}
 log('lods', report['triangles'])
 
@@ -881,6 +901,16 @@ if args.grade_bronze:
     metal = M_ > .5
     if metal.any():
         lum = B_[..., :3] @ np.array([.2126, .7152, .0722], np.float32); l = lum / max(float(lum[metal].mean()), 1e-3)
+        if 'shield' in lod0:
+            # Aspis: the device only on the outer face; the inner face plain bronze;
+            # the field lifted from dark brown to mid bronze.
+            nrm = rig.shield_frame()['normal']; me_ = lod0['shield'].data; me_.calc_loop_triangles(); uvl_ = me_.uv_layers['atlas'].data
+            inner, outer = [], []
+            for t in me_.loop_triangles:
+                (inner if np.dot(np.array(me_.polygons[t.polygon_index].normal), nrm) < -.2 else outer).append([tuple(uvl_[li].uv) for li in t.loops])
+            im_, om_ = raster_mask(inner), raster_mask(outer)
+            l = np.where(om_, .5 + .6 * l, l); l = np.where(im_ & ~om_, .95, l)
+            report['aspis_faces'] = {'inner_tris': len(inner), 'outer_tris': len(outer)}
         # Edge wear from curvature: convex pointiness, widened by a small blur so
         # raised rims and ridges read as polished bands, not single texels.
         pe = np.clip((P_ - .505) * 14, 0, 1)
@@ -962,7 +992,7 @@ def team_faces(o, p):
 
 
 # ------------------------------------------------------------------------- export
-names = {'body': 'body', 'layer': 'body', 'cloak': 'cloak', 'helmet': 'helmet', 'shield': 'aspis', 'spear': 'spear'}
+names = {'body': 'body', 'layer': 'garment', 'cloak': 'cloak', 'helmet': 'helmet', 'shield': 'aspis', 'spear': 'spear'}
 team_part = {'crest': 'crest', 'shield rim': 'aspis', 'cloak trim': 'cloak'}
 planes = clip_planes(rig.g)
 log('clip floor planes', len(planes))
@@ -1029,7 +1059,7 @@ report['team_regions'] = {m['name']: sorted({r['team'] for r in m['regions'] if 
 # README round 6): light for crest and trim, mid grey for the rim so its dark
 # border survives every colour. Hue painted there would muddy the tint.
 bp = np.array(maps_img['basecolor'].pixels[:], dtype=np.float32).reshape(N, N, 4)
-target = {'crest': .78, 'cloak trim': .82, 'shield rim': .5}
+target = {'crest': .78, 'cloak trim': .82, 'shield rim': .72}
 for kind, tris_ in team_uv.items():
     mask = np.zeros((N, N), bool)
     for tri in tris_:

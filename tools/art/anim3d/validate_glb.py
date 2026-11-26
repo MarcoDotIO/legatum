@@ -212,6 +212,28 @@ def validate(path,limits=None):
                 elif colors:require(all(colors[i][0]==0 for i in range(start,end)),f'{part} non-team mask must be zero')
             require(sorted(covered)==list(range(count)),'vertex_regions must partition every vertex exactly once')
         require(required_team<=lod_team_regions,f'{mesh["name"]} team mask must cover {", ".join(sorted(required_team))}')
+    # LOD1 (normal zoom) must keep every part LOD0 has, with most of its surface:
+    # decimation once silently dropped every garment from a LOD1.
+    lod_area={}
+    for mesh in d['meshes']:
+        prim=mesh['primitives'][0];P=g.accessor(prim['attributes']['POSITION']);I=[i[0] for i in g.accessor(prim['indices'])]
+        owner={}
+        for r in mesh.get('extras',{}).get('vertex_regions',[]):
+            for v in range(r['start'],r['start']+r['count']):owner[v]=r['part']
+        area={}
+        for k in range(0,len(I),3):
+            a,b,c=(P[I[k+j]] for j in range(3))
+            u=[b[i]-a[i] for i in range(3)];w=[c[i]-a[i] for i in range(3)]
+            cr=[u[1]*w[2]-u[2]*w[1],u[2]*w[0]-u[0]*w[2],u[0]*w[1]-u[1]*w[0]]
+            part=owner.get(I[k]);area[part]=area.get(part,0)+math.sqrt(sum(x*x for x in cr))/2
+        lod_area[mesh.get('name')]=area
+    if {'spearman_LOD0','spearman_LOD1'}<=set(lod_area):
+        a0,a1=lod_area['spearman_LOD0'],lod_area['spearman_LOD1']
+        missing=sorted(p for p in a0 if p not in a1)
+        require(not missing,f'spearman_LOD1 lacks parts that LOD0 has: {missing}')
+        # Skin under clothing may be dropped from LOD1, so 'body' needs only 30%.
+        thin=sorted(p for p in a0 if p in a1 and a0[p]>1e-4 and a1[p]<(.3 if p=='body' else .5)*a0[p])
+        require(not thin,f'spearman_LOD1 keeps under half the surface of: {thin}')
     require({'spear','aspis','helmet'}<=set(rigid_counts),'Missing required rigid prop regions')
     require(required_team<=set(team_regions),f'team must cover {", ".join(sorted(required_team))}')
     require(extras.get('team',{}).get('attribute')=='COLOR_0' and extras.get('team',{}).get('channel')=='r','Missing team mask semantics')
@@ -271,7 +293,7 @@ def validate(path,limits=None):
     # Mesh toes establish +Z, independently of metadata (front-most low vertex).
     require(max(p[2] for p in feet)>abs(min(p[2] for p in feet)), 'Toe geometry must face +Z')
     warnings.append('Painted quality, surface detail, exact team coverage, collisions and game feel require visual review; runtime must display only one LOD.')
-    return {'valid':not errors,'glb':str(Path(path).resolve()),'bytes':Path(path).stat().st_size,'triangles':tris,'lod_triangles':lod_triangles,'joints':len(joints),'skinned_meshes':len(skinned),'atlas_px':texture_size,'texture_images':texture_images,'figure_height_m':round(height,4),'feet_centre_m':[round(v,4) for v in feet_centre],'meshes':len(d['meshes']),'materials':len(d['materials']),'packaged_primitives':draw_calls,'draw_calls_per_lod':1,'team_regions':sorted(set(team_regions)),'rigid_vertices':rigid_counts,'clips':clips,'errors':errors,'review_required':warnings}
+    return {'valid':not errors,'glb':str(Path(path).resolve()),'bytes':Path(path).stat().st_size,'triangles':tris,'lod_triangles':lod_triangles,'joints':len(joints),'skinned_meshes':len(skinned),'atlas_px':texture_size,'texture_images':texture_images,'figure_height_m':round(height,4),'feet_centre_m':[round(v,4) for v in feet_centre],'meshes':len(d['meshes']),'materials':len(d['materials']),'packaged_primitives':draw_calls,'draw_calls_per_lod':1,'team_regions':sorted(set(team_regions)),'lod_part_area_m2':{k:{p:round(v,4) for p,v in a.items()} for k,a in lod_area.items()},'rigid_vertices':rigid_counts,'clips':clips,'errors':errors,'review_required':warnings}
 
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('glb',type=Path);p.add_argument('--output',type=Path)

@@ -102,6 +102,7 @@ try {
     },
     // A map-style squad: the unit plus two clones side by side (0.75 m apart,
     // staggered), each on its own mixer with a phase offset, LOD0 shown.
+    lod(name) { gltf.scene.traverse(o=>{if(o.isMesh)o.visible=o.name===name;}); },
     squad(name, time) {
       if(!this._squad){
         this._squad=[];
