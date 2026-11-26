@@ -560,14 +560,15 @@ export class MapScene {
         m.castShadow = true; m.frustumCulled = false;
         if (Array.isArray(m.material)) return;
         if (m.geometry.getAttribute('color')) m.material = this.teamMaterial(m.material as THREE.MeshStandardMaterial, team);
-        // Metal (bronze, the spear head) reflects its surroundings; with nothing to reflect it renders black.
-        const std = m.material as THREE.MeshStandardMaterial;
-        if (std.isMeshStandardMaterial && !std.envMap) { std.envMap = this.unitEnv(); std.envMapIntensity = 0.7; }
         else if (/crest|aspis/i.test(m.name)) {
+          // A model without the COLOR_0 mask: colour its crest and shield meshes whole.
           const mat = (m.material as THREE.MeshStandardMaterial).clone();
           mat.color = team.clone().lerp(new THREE.Color('#ffffff'), 0.1);
           m.material = mat;
         }
+        // Metal (bronze, the spear head) reflects its surroundings; with nothing to reflect it renders black.
+        const std = m.material as THREE.MeshStandardMaterial;
+        if (std.isMeshStandardMaterial && !std.envMap) { std.envMap = this.unitEnv(); std.envMapIntensity = 0.7; }
       });
       g.add(fig);
       // A model without a LOD1 mesh draws its LOD0 everywhere.

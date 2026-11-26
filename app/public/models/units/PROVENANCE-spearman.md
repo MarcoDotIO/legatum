@@ -36,4 +36,4 @@ Round r3 adds generated linen sleeve shells (replacing the torn source sleeves),
 Corinthian face plate with a dark T opening, skin sunk a few millimetres under clothing, and
 curvature-driven edge wear on the bronze. The model's eyes are removed (hidden by the plate).
 
-Rebuild: see `tools/art/anim3d/kit/FIT.md` ("Real models, round r1").
+Rebuild: the fitting kit (`tools/art/anim3d/kit/`, `FIT.md`, "Real models, round r1", and `fit_source_to_0ad.py`, named in the GLB's `extras.fit`) and the build folder `tools/art/anim3d/units/spearman-fit-casey/` are on this repository's branch `astra/unit-anim-3d-fit` at commit `f2395155`; the source files named above are not in this repository.

@@ -6,3 +6,4 @@
 - **Key models by art slug, not unit kind.** Aztec and Spartan Spearmen have their own paintings (Eagle Warrior, Spartan hoplite). Keying `MODELS` by `UnitKind` would have put a Greek hoplite on an Aztec unit. `mapUnitArtSlug` gives the same slug that picks the painting.
 - **Size.** A figure 0.17 hex tall read much smaller than the painted sprites (0.3 including the base); 0.22 sits closer.
 - **Loader.** three r170's GLTFLoader reads KHR_mesh_quantization and EXT_texture_webp with no extra decoder.
+- **Check every LOD, at the zoom where it draws (art review, PR 265).** The first Spearman GLB's LOD1 had lost all its clothing in decimation (bare skin under the helmet and shield). It passed the glTF validator and the three.js runtime check, and nobody had looked at LOD1 on the map, where it is the mesh players see at normal zoom. Force each LOD in turn and compare them at one zoom before shipping a model.
