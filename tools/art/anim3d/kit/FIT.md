@@ -15,7 +15,7 @@ The approved rig GLB and the sources this kit was proven on are art masters list
 `python3 tools/art/fetch-sources.py tools/art/anim3d/units/spearman-0ad/spearman.glb` (and the
 `tools/art/anim3d/sources/...` paths). `--rig` defaults to that GLB. The three.js review
 viewer and recorder (`viewer/record.mjs`) referenced below live on the animation branches
-(`astra/unit-anim-3d-fit`), not on master yet. Needs Blender 4.5+ (5.3 used) with numpy;
+(`astra/unit-anim-3d-fit`), not on master yet. Manifest entries for third-party masters carry two extra fields, `source` (where the file came from: an author and URL, or an upstream repository and revision) and `license` (an SPDX id such as `CC-BY-4.0` or `CC-BY-SA-3.0`), because these files are not our own work: the credit and licence must travel with them. The fetch tooling ignores both fields. Needs Blender 4.5+ (5.3 used) with numpy;
 `fit_test_source.py` also needs the MPFB 2 extension (`env.sh`).
 
 ## Usage
