@@ -23,9 +23,7 @@ By changed path:
   code                    legatum-docs-reviewer
   player text             legatum-plain-language-reviewer  (the copy files below, or any app/src source line that
                                                adds a sentence)
-  scenario-only branch    scenario.py          only scenarios/lab/*.json plus docs: no docs review, no extended verify;
-                                               instead the fast scenario check (rules version, baseline doc, state
-                                               loads on master's engine, copy lint; seconds)
+  position-only branch    scenario.py          only scenarios/lab/*.json plus docs: fast position check
   UI                      legatum-ui-reviewer
   what the advisor teaches  legatum-advisor-reviewer  (controls, turn flow, orders and the rules its advice and
                                                reasons state: ADVISOR_IMPACT; or the advisor itself)
@@ -57,7 +55,7 @@ REVIEWERS = {
 }
 
 TESTS = re.compile(r"^crates/[^/]+/tests/|_tests\.rs$|/tests\.rs$|^app/e2e/|\.test\.tsx?$|^app/src/test/|/__snapshots__/")
-# Scenario Lab files: data, not code, when the branch changes nothing else that is code (see tools/gates/scenario.py).
+# AI measurement positions are data when the branch changes no other code.
 LAB_SCENARIO = re.compile(r"^scenarios/lab/[a-z0-9-]+\.json$")
 # Not code: a branch touching only these merges without a docs review.
 NON_CODE = re.compile(r"^(docs/|plans/|\.progress/|\.reviews/|\.claude/|\.gitignore$)|\.md$|" + TESTS.pattern)
@@ -70,7 +68,6 @@ COPY = re.compile(r"^app/src/(data|factionSheets|airText|buildLabel|notice|miles
 APP_SOURCE = re.compile(r"^app/src/.*\.tsx?$")
 PROSE = re.compile(r"(['\"`]|>)\s*[A-Z][a-z']*(?:[ ,;:]+[A-Za-z0-9'$%{}.+-]+){4,}")
 COMMENT = re.compile(r"^\s*(//|/?\*)")
-SCENARIO_COPY = re.compile(r'^\s*"(title|briefing|tests|summary|question)"\s*:')
 ENGINE = re.compile(r"^crates/(core|ai)/(src/|Cargo\.toml$)")
 ART = re.compile(r"^app/src/assets/.*\.(png|svg|jpe?g|webp)$|^app/public/(wonders|terrain)/"
                  r"|^tools/art/(distinctness\.(py|json)|render-sets\.mjs)$")
@@ -102,7 +99,7 @@ ADVISOR_IMPACT = re.compile(r"^app/src/ui/(advisor|Advisor)\w*\.(ts|tsx|css)$|^a
 
 
 def classify(repo, base, tip, files=None):
-    """{'code','ui','copy','engine','art','artimpact','scenario': [paths]} for BASE..TIP. A branch whose only code is Lab scenario
+    """{'code','ui','copy','engine','art','artimpact','scenario': [paths]} for BASE..TIP. A branch whose only code is AI measurement
     files is `scenario`: those files are not `code` or `copy` (the scenario check covers them instead)."""
     files = files if files is not None else [p for s, p in changed_files(repo, base, tip)]
     out = {k: [] for k in ("code", "ui", "copy", "engine", "art", "artimpact", "advisor", "scenario", "front")}
@@ -121,9 +118,7 @@ def classify(repo, base, tip, files=None):
             out["code"].append(f)
         if UI.search(f) and not test:
             out["ui"].append(f)
-        if (COPY.search(f) and not test) or (f in scen and any(SCENARIO_COPY.match(added[f][0][n])
-                                                                for n in added.get(f, ({}, set()))[1])) \
-                or (f in prose_candidates and adds_prose(added.get(f, ({}, set())))):
+        if (COPY.search(f) and not test) or (f in prose_candidates and adds_prose(added.get(f, ({}, set())))):
             out["copy"].append(f)
         if ENGINE.search(f) and not test:
             out["engine"].append(f)

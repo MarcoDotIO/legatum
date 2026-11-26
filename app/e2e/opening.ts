@@ -13,7 +13,7 @@ export async function chooseCapitalProduction(page: Page): Promise<string> {
   await expect(page.locator('.city-panel')).toHaveCount(0);
   // The opening flow immediately offers research after production is chosen.
   // Leave that decision pending for specs that exercise the rest of the turn.
-  const research = page.getByRole('dialog', { name: /Technologies|Research/ });
+  const research = page.getByRole('dialog', { name: 'Research' });
   await expect(research).toBeVisible();
   await research.getByRole('button', { name: 'Close research' }).click();
   return choice;

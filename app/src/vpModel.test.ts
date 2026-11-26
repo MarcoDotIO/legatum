@@ -35,6 +35,18 @@ describe('the victory race model', () => {
     expect(model.capitals.find((c) => c.owner === me.id)?.names).toEqual(['Rome', 'Athens']);
     expect(model.empires.find((e) => e.id === me.id)?.held.filter((s) => s.kind === 'capital').map((s) => s.name)).toEqual(['Rome', 'Athens']);
   });
+  it('names capital holders and sackers by faction', async () => {
+    const view = await eightEmpireView();
+    const rival = view.players.find((p) => p.team !== view.team)!;
+    rival.name = 'AI 2';
+    rival.faction = 'Celts';
+    view.players.filter((p) => p.id !== rival.id).forEach((p) => { p.faction = 'India'; });
+    rival.capitals_taken = [[12, 'Rome']];
+    rival.capitals_sacked = [[19, 'Athens']];
+    const model = buildVpModel(view);
+    expect(model.byId.get(`capital-${rival.id}-12`)?.rule).toBe('Celts holds the original capital Rome: 1 VP while holding it');
+    expect(model.byId.get(`capital-sacked-${rival.id}-19`)?.rule).toBe('Celts sacked the original capital Athens: 1 VP, kept for good');
+  });
   it('feeds ledger columns in rank order, keeping teammates adjacent with one shared 20 VP target', async () => {
     const view = withV2(await eightEmpireView());
     view.standings.find((r) => r.team === view.team)!.target = 20;

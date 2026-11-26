@@ -5,7 +5,7 @@
 //!                 [--split FILE --set train|held_out|all] [--ids a,b] [--threads 16]
 //!                 --out runs.jsonl
 //!
-//! Every Scenario Lab card (`scenarios/lab/*.json`) and war scenario (`scenarios/war/*.json`; a war
+//! Every AI measurement position (`scenarios/lab/*.json`) and war scenario (`scenarios/war/*.json`; a war
 //! file whose start state is also a Lab card's is played once, as the card) is played `--runs`
 //! times per arm. Run `r` uses the same dice seed for every arm (`legatum-sim scenario`'s
 //! derivation: run 0 keeps the scenario's own seed), so two arms pair run by run. An arm is
@@ -17,13 +17,13 @@
 //! every AI empire except the seat and the designer's empire (when `--him` replaces it).
 //!
 //! `--him` picks who plays the designer's own empire (player 0 in every tape he recorded) when it
-//! is not the scenario seat: `hard` (default, as the Lab plays it), `designer` (the imitation seat,
+//! is not the scenario seat: `hard` (default, as the measured position uses it), `designer` (the imitation seat,
 //! `legatum_ai::designer`), or `params:FILE`. A war scenario that replays his recorded orders for
 //! his seat keeps doing so.
 //!
 //! The scenario seat plays Hard; the other empires keep the scenario's difficulty. No seat searches
 //! (the war suite gives Hard + Search opponents their search; this gate keeps every run cheap). The
-//! score is the scenario's own (`ActiveScenario::status`, as the app shows it), `won` is its
+//! score is the scenario's own (`ActiveScenario::status`, as the simulator scores it), `won` is its
 //! objective met. One JSON line per run; `tools/sim/scenario_gate_report.py` pairs and pools them.
 
 #[path = "war_script/mod.rs"]
@@ -46,7 +46,7 @@ const HIM: PlayerId = PlayerId(0);
 #[derive(clap::Parser, Debug)]
 #[command(
     name = "scenario_gate",
-    about = "Score AI configurations on every Lab card and war scenario, paired by dice seed"
+    about = "Score AI configurations on every lab-folder and war scenario, paired by dice seed"
 )]
 struct Cli {
     /// `NAME=SPEC[@OFFSET]`, SPEC `builtin` or an AiParams JSON file (repeat; at least one).
@@ -263,7 +263,7 @@ struct Played {
 
 fn play(card: &Card, arm: &Arm, run: u32, rivals: bool, him: &Config) -> Result<Played, String> {
     let file = &card.file;
-    let mut start = file.prepare(false)?;
+    let mut start = file.prepare()?;
     start.setup.seed = run_seed(start.setup.seed, run + arm.offset);
     let seat = file.seat;
     start.setup.players[seat.0 as usize].difficulty = AiDifficulty::Hard;

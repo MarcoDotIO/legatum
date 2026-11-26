@@ -1,4 +1,4 @@
-import { expectRaceWhole } from './tour/helpers';
+import { expectRaceWhole, meetEveryone } from './tour/helpers';
 import { revealSidebar } from './sidebarAssertions';
 // VP v2 in the real app (Rust core through WASM): the objectives sheet, decadence and
 // the This Turn objective row. The v2 numbers that need a long game (an era entered, progress)
@@ -8,7 +8,7 @@ import { join } from 'node:path';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
-// These specs are about the rest of the race panel (tokens, the Nobody row): the "How you win" block is left out (era-objectives.spec.ts covers it).
+// These specs are about the rest of the race panel (tokens, the Nobody row): the next Age objective is covered elsewhere (era-objectives.spec.ts covers it).
 test.beforeEach(async ({ page }) => { await page.addInitScript(() => { try { localStorage.setItem('legatum.dev.no-era-hud', '1'); } catch { /* storage blocked */ } }); });
 import type { useGame } from '../src/store';
 import { withV2, type V2Options } from '../src/test/vpV2Fixture';
@@ -57,7 +57,7 @@ for (const size of SIZES) {
 
     test('the ledger lists each begun Age’s card, scorers and your progress', async ({ page }) => {
       await startEightEmpires(page);
-      await page.locator('button.vh-chip').click();
+      await page.locator('.vp .vhc-head button.link').click();
       const sheet = page.getByTestId('objective-sheet');
       await expect(sheet.locator('.sl-row.k-work')).toHaveCount(1);
       // No Age has begun on turn 1: its card stays hidden until the first empire enters the era.
@@ -65,7 +65,7 @@ for (const size of SIZES) {
       await expect(sheet).not.toContainText(/Developed Empire|Six Technologies|Twenty Population|Most Populous|Most Territory/);
       await page.keyboard.press('Escape');
       await stage(page, { era: 2, scored: [] });
-      await page.locator('button.vh-chip').click();
+      await page.locator('.vp .vhc-head button.link').click();
       const era2 = sheet.locator('.sl-row[data-row="era-2"]');
       await expect(era2.locator('.sl-status')).toContainText('open to every empire');
       if (await era2.locator('button').getAttribute('aria-expanded') === 'false') await era2.locator('button').click();
@@ -80,12 +80,12 @@ for (const size of SIZES) {
       await shot(page, 'objectives-sheet', size);
       await page.keyboard.press('Escape');
       await stage(page, { era: 3, scored: [2] });
-      await page.locator('button.vh-chip').click();
+      await page.locator('.vp .vhc-head button.link').click();
       await expect(sheet.locator('.sl-row[data-row="era-2"] .sl-status')).toContainText('scored');
       await expect(sheet.locator('.sl-row[data-row="era-2"] td.mine .sl-token')).toHaveCount(1);
       await page.keyboard.press('Escape');
       await stage(page, { era: 7, scored: [2, 3, 4] });
-      await page.locator('button.vh-chip').click();
+      await page.locator('.vp .vhc-head button.link').click();
       // Six Ages have begun in the staged view.
       await expect(sheet.locator('.sl-row.k-era')).toHaveCount(6);
       const future = sheet.locator('.sl-row[data-row="era-7"]');
@@ -117,16 +117,17 @@ for (const size of SIZES) {
     test('a lead over the average empire shows as a lead chip and a decadence chip in the race, a note in the Gold breakdown and a list in the sheet', async ({ page }) => {
       await startEightEmpires(page);
       await stage(page, { era: 2, scored: [], lead: 60, rivalLead: 120 });
+      // A new game has met nobody; a rival's chips show only in a met rival's row.
+      await meetEveryone(page);
       const race = page.getByRole('region', { name: 'Victory race', exact: true });
-      await expect(race.locator('.vp-row.mine').getByTestId('lead-chip')).toHaveText('+60%');
+      await expect(race.locator('.rv-row.mine').getByTestId('lead-chip')).toHaveText('+60%');
       await expect(race.getByTestId('lead-chip')).toHaveCount(2);
       // One rate on every yield: its own red chip with an arrow, in the same two rows.
-      await expect(race.locator('.vp-row.mine').getByTestId('decadence-chip')).toHaveText(`${stagedDecadence}%`);
+      await expect(race.locator('.rv-row.mine').getByTestId('decadence-chip')).toHaveText(`${stagedDecadence}%`);
       await expect(race.getByTestId('decadence-chip')).toHaveCount(2);
-      await expect(race.locator('.vp-row.mine').getByTestId('decadence-chip').locator('.icon')).toHaveCount(1);
+      await expect(race.locator('.rv-row.mine').getByTestId('decadence-chip').locator('.icon')).toHaveCount(1);
       await expectRaceWhole(page);
-      await revealSidebar(page, 'standings');
-      await race.locator('.vp-row.mine').getByTestId('lead-chip').hover();
+      await race.locator('.rv-row.mine').getByTestId('lead-chip').hover();
       await shot(page, 'v3-race-panel-lead', size);
       await page.locator('.gold-stat').click();
       const tip = page.locator('.tip-bubble').filter({ hasText: 'Decadence:' }).first();
@@ -135,7 +136,7 @@ for (const size of SIZES) {
       await page.waitForTimeout(400);
       if (shots) await page.screenshot({ path: join(shots, `v3-gold-hover-decadence-${size.width}.png`) });
       await page.keyboard.press('Escape');
-      await page.locator('button.vh-chip').click();
+      await page.locator('.vp .vhc-head button.link').click();
       const sheet = page.getByTestId('objective-sheet');
       await expect(sheet.locator('.sl-col.mine .sl-decadence')).toContainText(`decadence −${stagedDecadence}%`);
       await expect(sheet.locator('.sl-col .sl-decadence')).toHaveCount(2);

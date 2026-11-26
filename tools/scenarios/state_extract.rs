@@ -1,4 +1,4 @@
-//! State extraction for Scenario Lab cuts (tools/scenarios/extract-state.sh): like war_extract.rs, plus the
+//! State extraction for AI measurement cuts (tools/scenarios/extract-state.sh): like war_extract.rs, plus the
 //! coalition target and the wars on each turn in summary.jsonl. Needs an engine with coalitions (8.9 or later).
 //! War-scenario extraction (claude/war-scenarios): replay a user save with the engine it was
 //! recorded on, verify every turn against the recorded hashes, dump full states at chosen turns

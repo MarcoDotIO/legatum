@@ -72,12 +72,12 @@ export function Guide() {
           <div className="guide-imprint"><Wordmark height={18} /></div>
           <h1 id="guide-title">How to Play</h1>
         </div>
-        <button ref={closeButton} className="btn quiet guide-close" onClick={close} aria-label="Close guide">
+        <button ref={closeButton} className="btn quiet guide-close" onClick={close} aria-label="Close How to Play">
           Close {!touch && <kbd>Esc</kbd>}
         </button>
       </header>
       <div className="guide-body">
-        <nav className="guide-nav" aria-label="Guide chapters">
+        <nav className="guide-nav" aria-label="How to Play chapters">
           <div className="guide-label">Contents</div>
           {GUIDE_SECTIONS.map((s, i) => (
             <button key={s.id} aria-current={section === s.id ? 'page' : undefined} onClick={() => show(s.id)}>
@@ -91,7 +91,7 @@ export function Guide() {
         </div>
       </div>
       {/* Key hints only where there is a keyboard (playtest-6: the phone showed "? Guide · Esc Return"). */}
-      {!touch && <footer className="guide-foot"><span><kbd>?</kbd> Guide &nbsp; <kbd>Esc</kbd> Return</span></footer>}
+      {!touch && <footer className="guide-foot"><span><kbd>?</kbd> How to Play &nbsp; <kbd>Esc</kbd> Return</span></footer>}
     </dialog>
   );
 }

@@ -1,5 +1,4 @@
 import { test, expect } from './fixtures';
-import { revealSidebar } from './sidebarAssertions';
 
 test.use({ viewport: { width: 1000, height: 600 } });
 
@@ -11,10 +10,8 @@ test('an 8.9.11 Hard profile starts a game with every AI on Hard', async ({ page
   await page.goto('/?client=wasm');
   await page.getByRole('button', { name: /^Single Player/ }).click();
   await page.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: /^Small/ }).click();
-  await expect(page.getByRole('radiogroup', { name: 'AI level (all AI empires)', exact: true }).getByRole('radio', { name: /^Hard\s+Ruthless/ })).toBeChecked();
-  const seats = page.getByRole('combobox', { name: /^Seat \d+ AI level$/ });
-  await expect(seats).toHaveCount(3);
-  for (const seat of await seats.all()) await expect(seat).toHaveValue('Hard');
+  await expect(page.getByRole('radiogroup', { name: 'AI level', exact: true }).getByRole('radio', { name: /^Hard\s+Ruthless/ })).toBeChecked();
+  await expect(page.getByRole('combobox', { name: /^Seat \d+ AI level$/ })).toHaveCount(0);
 
   await page.getByRole('button', { name: /^Start game/ }).click();
   // The old save that carried the Hard profile is still on disk, so the lobby asks before replacing it.
@@ -26,12 +23,13 @@ test('an 8.9.11 Hard profile starts a game with every AI on Hard', async ({ page
     return s.views[s.seat].players.filter((player) => !player.is_human).map((player) => player.difficulty);
   });
   expect(difficulties).toEqual(['Hard', 'Hard', 'Hard']);
-  await revealSidebar(page, 'standings');
-  await expect(page.locator('.vp-ai-level')).toHaveCount(3);
-  await expect(page.locator('.vp-ai-level').first()).toHaveText('AI · Hard');
+  // Each rival's row in the rivals table names its level (a met rival's row is a button whose title says it).
+  await expect(page.locator('.rivals .rv-row:not(.mine)')).toHaveCount(3);
+  for (const row of await page.locator('.rivals button.rv-row').all()) await expect(row).toHaveAttribute('title', /^AI · Hard\. Open Diplomacy$/);
   await page.getByRole('button', { name: /^Diplomacy( \(\d+\))?$/ }).click();
-  await expect(page.locator('.empire-pick-level')).toHaveCount(3);
-  await expect(page.locator('.empire-pick-level').first()).toHaveText('AI · Hard');
+  // On turn 1 nobody is met: Diplomacy hides them as the rivals table does, and counts them on one line.
+  await expect(page.locator('.empire-pick-level')).toHaveCount(0);
+  await expect(page.getByTestId('unmet-empires')).toContainText('3 empires not met yet');
   await page.getByRole('button', { name: 'Close diplomacy' }).click();
   await page.getByRole('region', { name: 'Victory race', exact: true }).getByRole('button', { name: 'Score ledger', exact: true }).click();
   await expect(page.locator('.sl-ai-level')).toHaveCount(3);

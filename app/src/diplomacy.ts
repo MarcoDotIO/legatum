@@ -1,10 +1,12 @@
+import { empireTitle } from './empires';
 import { isBarbarian } from './barbarians';
 import type { DiplomaticAction, Order, PlayerView, TeamId, TreatyKind, Hex, Event, UnitKind } from './types';
 import { hexAt, neighbors, tileIndex } from './hex';
 import { moveCost } from './data';
+import { bordersOpen } from './deals';
 
 export function teamName(view: PlayerView, team: TeamId): string {
-  return view.players.filter((p) => p.team === team).map((p) => p.name).join(' & ') || `Team ${team}`;
+  return empireTitle(view, team);
 }
 
 /** The teams fighting on `team`'s side: itself and everyone it is allied with (core `side_of`). */
@@ -29,14 +31,16 @@ export function diplomaticCost(view: PlayerView, order: Order): number | null {
     (a.order as unknown as Record<string, unknown>)[key] === value))?.cost ?? null;
 }
 
-/** Team IDs and player IDs differ in hotseat/team games. Public does not mean personal. */
+/** Team IDs and player IDs differ in team games. Public does not mean personal. */
 export function diplomaticTeams(event: Event): TeamId[] {
   if ('relation' in event) return [event.relation.a, event.relation.b];
   if ('proposal' in event) return event.proposal.required_teams?.length
     ? event.proposal.required_teams : [event.proposal.from, event.proposal.to];
   if ('call' in event) return [event.call.ally, event.call.team];
   switch (event.type) {
-    case 'TreatyEnded': return [event.a, event.b];
+    case 'TreatyEnded':
+    case 'BordersOpened':
+    case 'BordersClosed': return [event.a, event.b];
     case 'TreatyBreached': return [event.by, event.with];
     case 'AllianceBetrayed': return [event.betrayal.by, event.betrayal.against];
     case 'OrderSuperseded': return [event.decision.team];
@@ -98,7 +102,7 @@ export function peacefulRangedAt(v: PlayerView, h: Hex): { kind: 'unit' | 'city'
   return c ? { kind: 'city', owner: c.owner, team: target.team, id: c.id } : null;
 }
 
-/** Own team, War, an Alliance (passage), or the land of a Yam Relay Station's holder (open to every empire). */
+/** Own team, War, an Alliance (passage), Open Borders (deals), or the land of a Yam Relay Station's holder (open to every empire). */
 export function canEnter(view: PlayerView, _kind: UnitKind, owner: number | null, city = false): boolean {
   const team = owner === null ? undefined : view.players.find((p) => p.id === owner)?.team;
   // A closed country (Sakoku) lets nobody in at Peace: no Alliance, no courier passage, no open road.
@@ -106,7 +110,7 @@ export function canEnter(view: PlayerView, _kind: UnitKind, owner: number | null
   const allied = team !== undefined && relationWith(view, team)?.state === 'Alliance';
   if (city && team !== undefined && team !== view.team && !atWar(view, owner!)) return false;
   return owner === null || team === view.team || atWar(view, owner)
-    || (!closed && (allied
+    || (!closed && (allied || (team !== undefined && bordersOpen(view, team))
       || (view.courier_halls ?? []).some((h) => h.holder === owner)));
 }
 export function neutralBlocker(view: PlayerView, at: Hex): boolean {
@@ -129,9 +133,10 @@ export function otherTeam(view: PlayerView, order: Order): TeamId | null {
 }
 /**
  * Orders that end every offer between the two teams when the turn resolves: War and leaving an
- * Alliance each change the relation, and core withdraws the pair's offers then.
+ * Alliance each change the relation, and core withdraws the pair's offers then. Closing Open
+ * Borders does not change the relation, so it ends no offer.
  */
-export const endsOffers = (o: Order) => o.type === 'DeclareWar' || o.type === 'BreakTreaty';
+export const endsOffers = (o: Order) => o.type === 'DeclareWar' || (o.type === 'BreakTreaty' && o.agreement !== 'OpenBorders');
 
 /**
  * The queued order (ours or a teammate's) that already settles incoming offer `p`: a reply to it,
@@ -183,7 +188,7 @@ export function borderSteps(view: PlayerView, kind: UnitKind, from: Hex): (a: He
   return (a, b) => open(b) || (!open(a) && index(a) >= 0 && index(b) >= 0 && dist[index(b)] < dist[index(a)]);
 }
 
-/** Merge only local human teammates' diplomatic plans into the same contract online publishes. */
+/** Merge this browser's queued diplomatic plans into the same contract online publishes. */
 export function withLocalDiplomacy(view: PlayerView, humans: number[], orders: Order[][]): PlayerView {
   const local = new Set(humans);
   const queued = [...view.diplomacy.queued.filter((q) => !local.has(q.player)), ...orders.flatMap((os, seat) => view.players.some((p) => p.id === humans[seat] && p.team === view.team) ? os.filter((o) => otherTeam(view, o) !== null).map((order) => ({ player: humans[seat], order })) : [])];
@@ -192,7 +197,7 @@ export function withLocalDiplomacy(view: PlayerView, humans: number[], orders: O
 }
 /** Player-facing name of a proposal kind (a missing kind is a Peace offer). */
 export const offerLabel = (p: { kind?: TreatyKind | null }) => treatyLabel(p.kind);
-export const treatyLabel = (kind?: TreatyKind | null) => kind ?? 'Peace';
+export const treatyLabel = (kind?: TreatyKind | null) => kind === 'OpenBorders' ? 'Open Borders' : kind ?? 'Peace';
 /** Betrayal records still refusing Alliances where `team` broke an alliance. */
 export function betrayalsBy(view: PlayerView, team: TeamId) {
   return (view.diplomacy?.betrayals ?? []).filter((b) => b.by === team);
@@ -201,6 +206,8 @@ export function betrayalsBy(view: PlayerView, team: TeamId) {
 
 export function sameDiplomaticAction(a: Order,b: Order): boolean {
   if(a.type==='RespondToProposal'&&b.type==='RespondToProposal')return a.proposal===b.proposal&&a.accept===b.accept;
+  // One offer per pair: the same treaty offered with other Gold is the same action (deals).
+  if(a.type==='ProposeTreaty'&&b.type==='ProposeTreaty')return a.to===b.to&&a.kind===b.kind;
   return JSON.stringify(a)===JSON.stringify(b);
 }
 

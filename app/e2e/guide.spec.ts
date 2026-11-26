@@ -17,7 +17,7 @@ test('guide chapters, focus loop and shortcuts preserve the current screen', asy
   await page.goto('/?client=wasm');
   await page.getByRole('button', { name: /^How to Play/ }).click();
   await expect(guide(page)).toBeVisible();
-  const chapters = guide(page).getByRole('navigation', { name: 'Guide chapters' }).getByRole('button');
+  const chapters = guide(page).getByRole('navigation', { name: 'How to Play chapters' }).getByRole('button');
   await expect(chapters).toHaveCount(8);
   for (const label of ['Your first turns', 'Cities & research', 'Simultaneous combat', 'The victory race', 'The peoples', 'Controls & saves', 'Credits']) {
     await chapters.filter({ hasText: label }).click();

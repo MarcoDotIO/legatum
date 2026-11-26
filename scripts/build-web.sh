@@ -17,7 +17,7 @@
 # (tools/release/keep-builds.mjs), so a game always finishes on the version it started on. LEGATUM_BUILD_ID
 # overrides the id (default: the commit).
 # LEGATUM_RELAY_URL overrides the relay (default: the live one below); set it to "none" for a build without
-# online play (the menu then offers hot seat only).
+# online play (Multiplayer is disabled when there is no relay).
 # Needs: Rust (cargo + wasm-pack), Node/npm. Check the result with: cd app && npm run e2e:hosted
 set -euo pipefail
 cd "$(dirname "$0")/.."
@@ -44,8 +44,6 @@ if [ -z "${LEGATUM_BUILD_ID:-}" ]; then
 fi
 [[ "$LEGATUM_BUILD_ID" =~ ^[a-z0-9][a-z0-9-]{0,39}$ ]] || { echo "LEGATUM_BUILD_ID must be lower-case letters, digits and hyphens: $LEGATUM_BUILD_ID" >&2; exit 1; }
 # The live relay, and the origins the page's Content-Security-Policy allows for it (hosted/_headers).
-# hosted/_headers also lists the earlier workers.dev addresses: builds kept at v/<id>/ from before the domain
-# still call them. Drop them there when keep-builds no longer keeps such a build.
 default_relay="https://relay.playlegatum.com"
 relay="${LEGATUM_RELAY_URL:-$default_relay}"
 relay="${relay%/}"

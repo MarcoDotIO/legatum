@@ -277,6 +277,11 @@ pub fn add_fight_class_bonus_rules(
     if extra != 0 {
         b.add(label, extra);
     }
+    let (label, volley) =
+        fight_chariot_volley_for_rules(off, faction, own, other, attacker_side, shot);
+    if volley != 0 {
+        b.add(label, volley);
+    }
 }
 
 /// The breakdown lines of the Gaesatae's charge and missing shield wall.
@@ -323,6 +328,37 @@ pub fn fight_reislaufer_bonus_for_rules(
         (
             REISLAUFER_LABEL,
             base * data::REISLAUFER_MOUNTED_PERCENT / 100,
+        )
+    } else {
+        ("", 0)
+    }
+}
+
+/// The breakdown line of the Chariot Archer's volley against the melee line (states the percentage).
+pub const CHARIOT_VOLLEY_LABEL: &str = "Shooting melee units (+40%)";
+
+/// The extra an Egyptian Chariot Archer's shot gets against a melee-line unit
+/// (`data::CHARIOT_ARCHER_VOLLEY_PERCENT` of its own ranged strength, rounded down; Sam,
+/// 2026-11-25): only for its own shot (`attacker_side && shot`), never defending, and only while
+/// the class triangle applies (`triangle_applies`), as for every class bonus.
+pub fn fight_chariot_volley_for_rules(
+    off: FactionRuleSet,
+    made_by: Faction,
+    own: UnitKind,
+    other: UnitKind,
+    attacker_side: bool,
+    shot: bool,
+) -> (&'static str, i32) {
+    if attacker_side
+        && shot
+        && data::is_chariot_archer_rules(off, made_by, own)
+        && data::unit_class(other) == Some(UnitClass::Melee)
+        && triangle_applies(own, other)
+    {
+        let ranged = data::unit_stats_for_rules(off, made_by, own).ranged;
+        (
+            CHARIOT_VOLLEY_LABEL,
+            ranged * data::CHARIOT_ARCHER_VOLLEY_PERCENT / 100,
         )
     } else {
         ("", 0)
@@ -381,7 +417,7 @@ pub fn attack_strength_rules(
     crate::resources::add_unsupplied(&mut strength, made_by, kind, ranged, unsupplied);
     if city {
         if ranged {
-            strength.add("Siege against city HP", data::siege_city_bonus(kind));
+            strength.add("Siege against city health", data::siege_city_bonus(kind));
         }
         add_mounted_city_penalty_rules(&mut strength, off, made_by, kind, ranged);
     }
@@ -399,13 +435,13 @@ pub fn damage(own: i32, other: i32, roll_pct: i32) -> i32 {
     (base_damage(own, other) * roll_pct / 100).max(1)
 }
 
-/// Percent of its normal damage an attack deals to a walled city's HP (user, 2026-10-18: walls
+/// Percent of its normal damage an attack deals to a walled city's Walls bar (user, 2026-10-18: walls
 /// make a city slower and costlier to take, never impossible). `wall_tier` is the city's
 /// (`data::wall_tier`); `covered` is the siege tier of Siege of the attacker,
 /// 0 when none does. A covered attacker whose Siege unit reaches the city's highest tier fights as
 /// if there were no Walls: full damage. A lower tier takes back only part of it, and an
-/// uncovered attacker deals half. Aircraft strikes are not halved. Only a hit aimed at city HP is
-/// reduced; direct hits on a 0-HP city's garrison are not.
+/// uncovered attacker deals half. Aircraft strikes are not halved. Since rules 62 the percent applies to
+/// the Walls bar only ([`city_hit`]): what breaks through hits city HP in full, and garrisons are never reduced.
 pub fn wall_damage_percent(wall_tier: u8, covered: u8, air: bool) -> i32 {
     if wall_tier == 0 || air || covered >= wall_tier {
         100
@@ -416,18 +452,96 @@ pub fn wall_damage_percent(wall_tier: u8, covered: u8, air: bool) -> i32 {
     }
 }
 
-/// Percent of its normal damage an attack by `kind` deals to a city's HP: the Walls
-/// (`wall_damage_percent`) times the kind's own share (`data::city_hp_damage_percent`, half for a
-/// Biplane).
-pub fn city_damage_percent(kind: UnitKind, wall_tier: u8, covered: u8) -> i32 {
-    wall_damage_percent(wall_tier, covered, data::is_aircraft(kind))
-        * data::city_hp_damage_percent(kind)
-        / 100
+/// Percent of its normal damage an attack by `kind` deals to a city: the kind's own share
+/// (`data::city_hp_damage_percent`, half for a Biplane). Walls take a further cut
+/// (`wall_damage_percent`, applied by [`city_hit`]); city HP behind them takes this in full.
+pub fn city_damage_percent(kind: UnitKind) -> i32 {
+    data::city_hp_damage_percent(kind)
 }
 
-/// Damage to a walled city's HP from an attack with `normal_damage` (`wall_damage_percent`).
+/// Damage to a city from an attack with `normal_damage` (`city_damage_percent`).
 pub fn damage_to_city_hp(percent: i32, normal_damage: i32) -> i32 {
     normal_damage * percent / 100
+}
+
+/// The Walls bar of a city at Walls `level` (breakable Walls, 2026-11-25): 100 for level I and
+/// +50 for each level above it, 0 without Walls. Hits on a walled city land on this bar first.
+pub fn walls_max_hp(level: u8) -> i32 {
+    if level == 0 {
+        0
+    } else {
+        WALLS_BASE_HP + WALLS_HP_PER_LEVEL * (i32::from(level) - 1)
+    }
+}
+
+/// The Walls bar of a city at `level` that has taken `damage` (`City::walls_damage`).
+pub fn walls_hp(level: u8, damage: i32) -> i32 {
+    (walls_max_hp(level) - damage).max(0)
+}
+
+/// A city's whole front against an attacker whose hits take `wall_percent` off its Walls bar: the
+/// full-rate damage it takes to empty both the bar and the HP (`city_hit`). The AI's planning
+/// estimates use it; resolution applies `city_hit` hit by hit.
+pub fn city_front(hp: i32, walls_hp: i32, wall_percent: i32) -> i32 {
+    hp.max(0) + walls_hp.max(0) * 100 / wall_percent.max(1)
+}
+
+/// `damage` at full rate expressed in the city's HP: the share of its front (`city_front`) the
+/// hit removes, times its HP. Unchanged without Walls. For estimates that compare against HP.
+pub fn front_damage_as_hp(damage: i32, hp: i32, walls_hp: i32, wall_percent: i32) -> i32 {
+    let front = city_front(hp, walls_hp, wall_percent);
+    if front <= 0 {
+        return 0;
+    }
+    (i64::from(damage.clamp(0, front)) * i64::from(hp.max(0)) / i64::from(front)) as i32
+}
+
+/// Walls bar of level I.
+pub const WALLS_BASE_HP: i32 = 100;
+/// Walls bar added by each Upgrade Walls.
+pub const WALLS_HP_PER_LEVEL: i32 = 50;
+
+/// Where one hit on a city lands ([`city_hit`]).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct CityHit {
+    /// Taken off the Walls bar.
+    pub walls: i32,
+    /// Taken off the city's HP.
+    pub hp: i32,
+    /// The part of the hit (in city-HP damage) left after both: carries on to the garrison.
+    pub past: i32,
+}
+
+/// One hit of `damage` (`damage_to_city_hp`, full rate) on a city with `walls_hp` and `hp` left.
+/// The Walls bar takes it first at `wall_percent` (`wall_damage_percent`); the share of the hit
+/// that breaks the bar carries on into the city's HP at full rate, and what is left past the
+/// HP is `past`. Resolution (`rules::battle`), the assault forecast and the AI use this one
+/// function.
+pub fn city_hit(walls_hp: i32, hp: i32, damage: i32, wall_percent: i32) -> CityHit {
+    let damage = damage.max(0);
+    let mut rest = damage;
+    let mut walls = 0;
+    if walls_hp > 0 && damage > 0 {
+        let pct = wall_percent.max(1);
+        let full = damage * pct / 100;
+        if full < walls_hp {
+            return CityHit {
+                walls: full,
+                hp: 0,
+                past: 0,
+            };
+        }
+        walls = walls_hp;
+        // The share of the hit the bar used up, rounded up so a breaking hit never gains.
+        let used = (walls_hp * 100 + pct - 1) / pct;
+        rest = (damage - used).max(0);
+    }
+    let hp_taken = rest.min(hp.max(0));
+    CityHit {
+        walls,
+        hp: hp_taken,
+        past: rest - hp_taken,
+    }
 }
 
 /// Walls halve the damage of an attack the attacker has no Siege to cancel.
@@ -806,7 +920,7 @@ pub fn city_defense_with_fort(
     )
 }
 
-/// `fort` is the Walls tier above plain Walls: 0 none, 1 a Castle, 2 a Star Fort. Each adds its
+/// `fort` is the Walls tier above plain Walls: 0 none, then one for each Walls level above I. Each adds its
 /// own strength on top of the tier below. `era` is the owner's era (0 Ancient): every line
 /// except the wounds rides the era curve (`data::era_scaled`), so a city keeps pace with the
 /// units of its day (user, 2026-10-18: city strength and Walls tiers follow the same curve).
@@ -852,7 +966,7 @@ pub fn city_defense_covered(
 
 /// A city's defence against an attacker a Siege of tier `covered` covers
 /// (`wall_damage_percent`): the strength of the Walls tiers up to `covered` is left out, and
-/// the higher tiers (a Castle, a Star Fort) still count. `wall_tier` as in `data::wall_tier`.
+/// the higher Walls levels still count. `wall_tier` as in `data::wall_tier`.
 pub fn city_defense_covered_rules(
     off: FactionRuleSet,
     faction: Faction,
@@ -877,30 +991,12 @@ pub fn city_defense_covered_rules(
             ),
         );
     }
-    if wall_tier >= 2 && covered < 2 {
-        b.add(
-            "Castle upgrade",
-            data::era_scaled(
-                data::building_stats(BuildingKind::Castle).city_strength,
-                era,
-            ),
-        );
-    }
-    if wall_tier >= 3 && covered < 3 {
-        b.add(
-            "Star Fort upgrade",
-            data::era_scaled(
-                data::building_stats(BuildingKind::StarFort).city_strength,
-                era,
-            ),
-        );
-    }
+    // Upgrade levels add to the Walls bar (`walls_max_hp`), not to strength.
     wounded(&mut b, hp, CITY_HP, 20);
     b
 }
 
-/// City strike, as in Civ 6: only a walled city fires. Any Walls tier counts (a Castle upgrades
-/// Walls, and the Switzerland' Alpine Redoubt is their Walls), and a city at 0 HP stops firing.
+/// City strike, as in Civ 6: only a walled city fires. Any Walls level counts (including Switzerland's Alpine Redoubt), and a city at 0 HP stops firing.
 /// Unwalled cities rely on their garrison and HP alone. Resolution, forecasts and the AI all ask
 /// this one function.
 pub fn city_can_fire(walls: bool, hp: i32) -> bool {

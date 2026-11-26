@@ -3,7 +3,7 @@ import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { FixtureClient } from '../test/fixtureEngine';
-import { ObjectiveSheet, VpChip } from './ObjectiveSheet';
+import { ObjectiveSheet } from './ObjectiveSheet';
 import { useGame } from '../store';
 import { withV2 } from '../test/vpV2Fixture';
 import { buildVpModel } from '../vpModel';
@@ -30,17 +30,13 @@ afterEach(() => { act(() => root.unmount()); host.remove(); vi.unstubAllGlobals(
 const sheet = () => document.querySelector('.vh-sheet')!;
 const row = (id: string) => sheet().querySelector(`.sl-row[data-row="${id}"]`)!;
 
-it('keeps the dialog shell, close control and VP chip entry point', () => {
-  useGame.setState({ vpExpanded: false });
-  act(() => root.render(<><VpChip /><ObjectiveSheet /></>));
-  expect(sheet()).toBeNull();
-  const chip = host.querySelector<HTMLButtonElement>('.vh-chip')!;
-  expect(chip.getAttribute('aria-label')).toMatch(/^Score ledger/);
-  act(() => chip.click());
+it('keeps the dialog shell and close control', () => {
+  act(() => root.render(<ObjectiveSheet />));
   expect(sheet().getAttribute('data-dismissible')).toBe('victory');
   expect(sheet().querySelector('.sl-table')).not.toBeNull();
   expect(sheet().querySelector('.vh-card')).toBeNull();
   expect(document.getElementById(sheet().getAttribute('aria-labelledby')!)?.textContent).toBe('Score ledger');
+  expect(sheet().querySelector('.vh-close')?.getAttribute('aria-label')).toBe('Close score ledger');
   act(() => sheet().querySelector<HTMLButtonElement>('.vh-close')!.click());
   expect(useGame.getState().vpExpanded).toBe(false);
 });

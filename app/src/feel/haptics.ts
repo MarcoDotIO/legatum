@@ -18,6 +18,7 @@ const patterns = {
   warning: [[0, 'warning']], warDeclared: [[0, 'error'], [120, 'heavy']], eliminated: [[0, 'error'], [60, 'heavy']],
   victory: [[0, 'success'], [180, 'heavy'], [360, 'rigid']], defeat: [[0, 'heavy']],
   partnerReady: [[0, 'light']], allReady: [[0, 'medium']], seatTaken: [[0, 'warning']],
+  teamPing: [[0, 'light']],
 } as const satisfies Record<string, Pattern>;
 
 export type FeelName = keyof typeof patterns;
@@ -37,7 +38,7 @@ export function cancelCelebrationFeedback(): void {
   celebrationGeneration++;
 }
 
-/** A hot-seat handoff cancels the old turn's story, but keeps the Ready tap that caused it. */
+/** Cancel the prior turn's feedback when the viewed game changes. */
 export function cancelTurnFeedback(): void {
   turnGeneration++;
   if (lastWasTurn) blockedUntil = -Infinity;

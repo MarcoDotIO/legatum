@@ -1,7 +1,7 @@
 /*
  * The end of a game (GameOver.tsx): the staged reveal (GameReveal.tsx) and the post-game report (PostGameReport.tsx,
  * HistoryChart.tsx). Reveal base styles are the settled scene; every animation runs "backwards" from hidden, so a
- * click (.still) or reduced motion simply shows it finished. Scoped to .go-end so the scenario result dialog, which
+ * click (.still) or reduced motion simply shows it finished. Scoped to .go-end so other dialogs, which
  * shares .gameover, keeps its own look.
  */
 dialog.gameover.go-end {

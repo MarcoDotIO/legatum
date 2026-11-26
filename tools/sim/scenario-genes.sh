@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Score a Scenario Lab scenario with and without AI genes, every seat on the same parameters.
+# Score a AI measurement position with and without AI genes, every seat on the same parameters.
 #
 #   tools/cloud/remote.sh <worktree> --with-uncommitted -- tools/sim/scenario-genes.sh [--runs N] SCENARIO[,SCENARIO...] PARAMS.json [PARAMS.json ...]
 #

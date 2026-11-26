@@ -1,8 +1,8 @@
 //! `legatum-sim scenario <file>`: the AI baseline for a scenario. The scripted AI plays the
-//! scenario seat from the same start state across RNG seeds (run 0 keeps the scenario's own
-//! seed, so it sees the same dice a human run does), scoring every run exactly as the app
-//! does. Writes `<id>-baseline.json` (every run, with the seat's raw orders for the first
-//! decision turns, for `tools/scenarios/compare.py`) and a readable `<id>-baseline.md`.
+//! scenario seat from the same start state across RNG seeds (run 0 keeps the position's own
+//! seed), scoring every run with the core objective scorer. Writes `<id>-baseline.json`
+//! (every run, with the seat's raw orders for the first
+//! decision turns) and a readable `<id>-baseline.md`.
 
 use crate::clock;
 use legatum_core::rng::Rng;
@@ -36,7 +36,7 @@ pub struct Cli {
     pub decision_turns: u32,
     #[arg(long, default_value = concat!(env!("CARGO_MANIFEST_DIR"), "/../../docs/sim-results/scenarios"))]
     pub out: PathBuf,
-    /// Also write the summary into the scenario file's `baseline` (shown on the result screen).
+    /// Also write the summary into the scenario file's `baseline` (used by measurement reports).
     #[arg(long)]
     pub record: bool,
     /// Every AI seat, the scenario seat included, plays with these tuned parameters (a file, or
@@ -175,7 +175,7 @@ pub fn play(
     decision_turns: u32,
     opts: SeatOptions,
 ) -> Result<RunResult, String> {
-    let mut start = file.prepare(false)?;
+    let mut start = file.prepare()?;
     start.setup.seed = run_seed(start.setup.seed, run);
     start.setup.players[file.seat.0 as usize].difficulty = difficulty;
     let active = ActiveScenario::new(file.clone(), start.clone());
@@ -521,6 +521,10 @@ pub fn describe(state: &GameState, order: &Order) -> (String, String) {
         Order::SetScienceConversion { to } => {
             ("Research".into(), format!("convert Science to {to:?}"))
         }
+        Order::SetResearchGoal { tech } => (
+            "Research".into(),
+            tech.map_or_else(|| "no goal".into(), |t| format!("goal {t:?}")),
+        ),
         Order::SetResearchQueue { techs } => (
             "Research".into(),
             techs
@@ -535,7 +539,7 @@ pub fn describe(state: &GameState, order: &Order) -> (String, String) {
             "Diplomacy".into(),
             format!("declare war on {}", team(against)),
         ),
-        Order::ProposeTreaty { to, kind } => (
+        Order::ProposeTreaty { to, kind, .. } => (
             "Diplomacy".into(),
             format!("propose {kind:?} to {}", team(to)),
         ),
@@ -597,7 +601,7 @@ pub fn run(cli: &Cli) -> Result<(), String> {
     let text =
         std::fs::read_to_string(&cli.file).map_err(|e| format!("{}: {e}", cli.file.display()))?;
     let file = ScenarioFile::parse(&text)?;
-    let start = file.prepare(false)?;
+    let start = file.prepare()?;
     if cli.runs == 0 {
         return Err("--runs must be at least 1".into());
     }

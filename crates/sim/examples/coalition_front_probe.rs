@@ -2,7 +2,7 @@
 //!
 //!   coalition_front_probe SCENARIO.json RUNAWAY_FACTION RUNS EXTRA_TURNS PARAMS.json [PARAMS.json ...]
 //!
-//! Plays a Scenario Lab scenario with every seat, the scenario seat included, a Hard AI on the
+//! Plays a AI measurement position with every seat, the scenario seat included, a Hard AI on the
 //! given parameters (the `legatum-sim scenario` baseline loop), for the objective's window plus
 //! EXTRA_TURNS, RUNS reseeded runs per parameter file. Per arm it prints, as means per run:
 //! battles fought by other empires on the runaway's cities and units, the runaway's cities
@@ -94,7 +94,7 @@ fn play(
     extra: u32,
     params: &'static AiParams,
 ) -> BTreeMap<&'static str, i64> {
-    let mut start = file.prepare(false).expect("scenario");
+    let mut start = file.prepare().expect("scenario");
     start.setup.seed = run_seed(start.setup.seed, run);
     start.setup.players[file.seat.0 as usize].difficulty = AiDifficulty::Hard;
     let active = ActiveScenario::new(file.clone(), start.clone());

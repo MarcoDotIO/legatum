@@ -170,6 +170,11 @@ box_remote_digest() {
 }
 
 box_sync() {
+  # Runner-owned scripts are updated through boxrunner/update-scripts.sh.
+  if box_ssh "test -e /opt/legatum-boxrunner/SYNC_GUARD" 2>/dev/null; then
+    echo "box: boxrunner owns /data/bin; refusing legacy box_sync" >&2
+    return 0
+  fi
   box_ensure_data
   local here root sha remote_sha reason=""
   here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -171,8 +171,7 @@ for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
     await expect(page.getByTestId('turn-number')).toHaveText('2', { timeout: 60_000 });
 
     // A routine first turn has no founding celebration, but its report remains available.
-    await page.getByRole('button', { name: 'Menu', exact: true }).click();
-    await page.getByRole('button', { name: 'Turn report (L)', exact: true }).click();
+    await page.locator('button.last-turn').first().click();
     await expect(page.getByRole('complementary', { name: 'Turn report' })).toBeVisible();
     await shot(page, size, '09-turn-report');
     await closeReportIfOpen(page);
@@ -235,7 +234,7 @@ for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
     await page.getByRole('region', { name: 'Victory race', exact: true }).getByRole('button', { name: 'Score ledger', exact: true }).click();
     await expect(page.getByTestId('objective-sheet')).toBeVisible();
     await shot(page, size, '13-vp-race');
-    await page.getByRole('button', { name: 'Close objectives', exact: true }).click();
+    await page.getByRole('button', { name: 'Close score ledger', exact: true }).click();
     await expect(page.getByTestId('objective-sheet')).toHaveCount(0);
 
     // The game menu (in-game settings live here).
@@ -497,7 +496,7 @@ for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
       const stats = await page.locator('.unit-panel .up-stats').evaluate((el) => {
         const scroller = el.closest('.unit-panel-body')!;
         const bounds = scroller.getBoundingClientRect();
-        const labels = [...el.querySelectorAll('.lbl')].filter((label) => /^(HP|Moves)$/i.test(label.textContent?.trim() ?? ''))
+        const labels = [...el.querySelectorAll('.lbl')].filter((label) => /^(Health|Moves)$/i.test(label.textContent?.trim() ?? ''))
           .map((label) => { const b = label.getBoundingClientRect(); return { top: b.top, bottom: b.bottom }; });
         return { labels, top: bounds.top, bottom: bounds.bottom, scroll: scroller.scrollTop };
       });

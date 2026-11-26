@@ -1,6 +1,6 @@
 // UI review of claude/celts-barb-peace and claude/lobby-six (merge-ui-1103): barbarians beside a Celtic city raise no alarm,
 // call to action, wounded warning or danger mark, while a non-Celtic city still alarms; the Celtic Auto-fire tooltip and
-// the Guide's Celts paragraph; the Single Player lobby's default of 6 empires and its size switches.
+// How to Play's Celts paragraph; the Single Player lobby's default of 6 empires and its size switches.
 // Run alone: `npx playwright test e2e/tour/celts-barb-peace`.
 import { test, expect } from '../fixtures';
 import { endPlanning } from '../turnActions';
@@ -141,7 +141,7 @@ for (const size of SIZES) test.describe(`celts barbarian peace ${size.name}`, ()
     await shot(page, size, 'cb-celts-mixed-01-this-turn');
   });
 
-  test('the Guide: the Celts paragraph', async ({ page }) => {
+  test('How to Play: the Celts paragraph', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });
@@ -196,12 +196,5 @@ for (const size of SIZES) test.describe(`celts barbarian peace ${size.name}`, ()
     await shot(page, size, 'lb-09-added-back');
   });
 
-  test('lobby: hot seat default', async ({ page }) => {
-    await page.goto('/?client=wasm');
-    await page.getByRole('button', { name: /^Multiplayer/ }).click();
-    await page.getByRole('button', { name: /^Hot Seat/ }).click();
-    await expect(page.getByRole('heading', { name: 'Hot Seat', exact: true })).toBeVisible();
-    await page.mouse.move(5, size.height / 2);
-    await shot(page, size, 'lb-10-hotseat');
-  });
+
 });

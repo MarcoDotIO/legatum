@@ -1,5 +1,5 @@
 // UI review of train-1103: the shots the tour was missing for world wonders (map art beside the painted works, tile card,
-// moments for completion, capture and loss, the raze confirm in a wonder city, the expanded ledger row, the Guide chapter)
+// moments for completion, capture and loss, the raze confirm in a wonder city, the expanded ledger row, How to Play chapter)
 // and the Aztec rule note in view. Run alone: `npx playwright test e2e/tour/ui-review-1103`.
 import { test, expect } from '../fixtures';
 import { TECHS } from '../../src/data';
@@ -137,9 +137,9 @@ for (const size of SIZES) test.describe(`ui review 1103 ${size.name}`, () => {
     await shot(page, size, 'r2-raze-confirm-wonder-city');
   });
 
-  test('the ledger world wonder row opened, and the Guide chapter', async ({ page }) => {
+  test('the ledger world wonder row opened, and How to Play chapter', async ({ page }) => {
     await openLateRace(page);
-    await page.locator('button.vh-chip').click();
+    await page.locator('.vp .vhc-head button.link').click();
     const sheet = page.getByTestId('objective-sheet');
     await expect(sheet.locator('.sl-table')).toBeVisible();
     const row = sheet.locator('tr.sl-row.k-work').first().locator('button.sl-row-btn');
@@ -150,7 +150,7 @@ for (const size of SIZES) test.describe(`ui review 1103 ${size.name}`, () => {
     await page.keyboard.press('Escape');
   });
 
-  test('the Guide world wonders section', async ({ page }) => {
+  test('How to Play world wonders section', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });

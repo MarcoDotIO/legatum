@@ -15,7 +15,6 @@ import type {
 } from './types';
 
 import type { SettlementScore, SettlementSite, SiteBlocker } from './types';
-import type { ScenarioStatus } from './scenarios/scenarios';
 
 export interface GameClient {
   readonly kind: 'wasm' | 'remote';
@@ -43,10 +42,6 @@ export interface GameClient {
   /** Attach a turn's browser frame and input timing (frameTelemetry.ts) to the archive. */
   recordFrameTime?(time: TurnFrameTime): void;
   forkArchive?(): void;
-  /** Start a scenario from its file JSON (the real local engine only). */
-  loadScenario?(scenarioJson: string): void;
-  /** The scenario objective's status for the current state. */
-  scenarioStatus?(): ScenarioStatus;
 }
 
 export type ClientKind = 'wasm';

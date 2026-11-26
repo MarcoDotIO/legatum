@@ -69,7 +69,7 @@ export function SidebarFactionGoal({ view }: { view: PlayerView }) {
   return <details className="sidebar-goal">
     <summary><span>{goal.name}</span><span>{p.done ? (p.live ? 'Held' : 'Scored') : `${Math.min(p.value, p.target)}/${p.target}`} · <Amounts text={`+${factionGoalVp(me.faction)} VP`} /></span></summary>
     <p>{factionGoalRule(me.faction)}. {cappedGoalLabel(p.label)}</p>
-    <button className="link" onClick={() => useGame.getState().set({ vpExpanded: true })}>Goal in the score ledger</button>
+    <button className="link" onClick={() => useGame.getState().set({ vpExpanded: true })}>Score ledger</button>
   </details>;
 }
 

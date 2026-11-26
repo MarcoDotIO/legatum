@@ -1,7 +1,6 @@
 // World Ages, everywhere you look (legatum-ui "era objectives are always visible with progress"): this is how you win.
 // `ObjectiveRows` is the one list of an Age's card with your progress; the race panel's block, the era-up takeover and the
 // research screen all draw it, so a rule reads and counts the same on every surface.
-import { useGame } from '../store';
 import { eraName, eraNumeral } from './eraResearch';
 import { RingMedallion } from './ringMedallion';
 import { useEffect, useRef } from 'react';
@@ -10,20 +9,15 @@ import { useReducedMotion } from './useReducedMotion';
 import { motionStill } from './motion';
 import { ageName, ERA_COUNT } from '../data';
 import { Icon } from './bits';
-import { Tip } from './Tip';
-import { CrestMedallion } from '../brand/ornaments';
 import { cardHint, cardName, scoredCard } from '../ageCards';
-import { eraHud, eraObjectivesFor, FAMILY_LABEL, glance, howYouWin, type EraHud, type EraObjectives, type HowYouWin, type ObjectiveLine } from '../eraObjectives';
+import { eraHud, FAMILY_LABEL, glance, howYouWin, type ObjectiveLine } from '../eraObjectives';
 import { empireOfPlayer } from '../empires';
 import type { PlayerView } from '../types';
 import type { VpModel } from '../vpModel';
-import { noEraHud, setEraHudOpen, useEraHudOpen } from './eraHudOpen';
 import './eraObjectives.css';
 
-const PART_ICON = { eras: 'milestone-six-techs', work: 'milestone-great-library', goal: 'vp' } as const;
 /** The one rule behind every count (R1), shown wherever progress is. */
 const COUNT_NOTE = 'Counts only what you do after this Age begins and after you last scored an Age';
-const open = () => useGame.getState().set({ vpExpanded: true });
 const COUNT_UNIT: Record<string, string> = {
   Cities: 'cities', Population: 'population', Territory: 'tiles', Buildings: 'cities with this building',
 };
@@ -77,109 +71,6 @@ export function ObjectiveRows({ lines, preview = false, big = false, inline = fa
 }
 
 /**
- * "How you win": the band with your VP towards the target, which expands or compacts the block (a button), and, when expanded,
- * the VP sources behind it with your count in each.
- */
-function HowYouWinLine({ win, open, toggle, scored }: { win: HowYouWin; open: boolean; toggle?: boolean; scored?: string }) {
-  const action = open ? 'Show one line' : 'Show every Age card';
-  return <>
-    <header className="eo-win">
-      <h4>How you win</h4>
-      {scored && <span className="eo-scored" data-testid="era-scored-tag" title={`${scored}: 1 VP scored, kept for good`}>
-        <Icon name="ui-check" size={11} className="ui-mark" /><span className="eo-scored-w">Age scored</span><span className="sr-only">: {scored}, 1 VP scored, kept for good</span>
-      </span>}
-      <span className="eo-vp" data-testid="how-you-win-vp"><b>{win.vp}</b> of {win.target} VP</span>
-      {toggle && <button type="button" className="eo-toggle" data-testid="era-hud-toggle" aria-expanded={open} onClick={() => setEraHudOpen(!open)}
-        title={scored ? `${scored}: 1 VP scored, kept for good. ${action}` : action}>
-        <Icon name={open ? 'ui-chevron-up' : 'ui-chevron-down'} size={12} className="ui-mark" />
-        <span className="sr-only">{action}</span>
-      </button>}
-    </header>
-    {open && <ul className="eo-parts" aria-label={`Where your ${win.target} VP come from`}>
-      {win.parts.map((p) => <li key={p.key} className={`eo-part ${p.key}${p.have > 0 ? ' has' : ''}`} data-part={p.key}>
-        <Tip content={p.title}><span>
-          {p.key === 'goal' ? <CrestMedallion faction={win.faction} size={14} color={win.ink} /> : <Icon name={PART_ICON[p.key]} size={14} />}
-          <span className="sr-only">{p.label}</span> <b>{p.max === null ? p.have : `${p.have}/${p.max}`}</b>
-        </span></Tip>
-      </li>)}
-    </ul>}
-  </>;
-}
-
-/** The Age's heading for its card, from its state: a title and the short rule beside it. */
-function heading(era: EraObjectives, members: number): { title: string; rule: string } {
-  const vp = members > 1 ? '1 VP each' : '1 VP';
-  return era.state === 'scored' ? { title: `${ageName(era.name)}: 1 VP scored`, rule: 'kept for good' } : { title: `Score ${vp} in the ${ageName(era.name)}`, rule: 'never expires' };
-}
-
-/** A line under the card: when the first or next Age begins. */
-function EntryNote({ hud }: { hud: EraHud }) {
-  if (!hud.entry) return null;
-  return <p className="eo-note" data-testid="era-entry-note">
-    {hud.noObjective
-      ? <>No Age has begun. The first begins when any empire enters the {hud.focus.name} era, and its card is shown to everyone.</>
-      : hud.focus.era < ERA_COUNT ? <>The next Age begins when any empire enters the {eraName(hud.focus.era)} era. Its card stays hidden until then.</> : null}
-  </p>;
-}
-
-/** The compact block's one line: the era in focus and its objective nearest done, with its progress as the fill behind the line. A click opens the full block. */
-function Glance({ hud, members }: { hud: EraHud; members: number }) {
-  const g = glance(hud, members);
-  const tag = g.tag;
-  const line = g.line;
-  if (!line) return null;
-  const preview = hud.focus.state === 'preview';
-  const pct = preview ? 0 : line.target > 0 ? Math.min(100, (line.shown / line.target) * 100) : 0;
-  const label = `${tag}: ${FAMILY_LABEL[line.family]}, ${line.text}, ${preview ? 'counts what you do after the Age begins' : `${line.shown} of ${line.target}`}. Show every Age card`;
-  return <button type="button" className={`eo-glance${line.met && !preview ? ' met' : ''}`} data-testid="era-glance" aria-expanded={false} aria-label={label} onClick={() => setEraHudOpen(true)}>
-    <span className="eo-fill" aria-hidden="true"><i style={{ width: `${pct}%` }} /></span>
-    <span className="eo-g-tag" title="This Age's card">{tag}</span>
-    <span className="eo-fam" title={FAMILY_LABEL[line.family]}><Icon name={FAMILY_ICON[line.family]} size={14} /></span>
-    <span className="eo-text" data-testid="era-glance-text" title={cardName(line.text) !== line.text ? line.text : undefined}>{cardName(line.text)}</span>
-    <Count l={line} preview={preview} />
-  </button>;
-}
-
-/**
- * The race panel's block. Compact by default (legatum-ui "race rows keep their room"): the "How you win" band with your VP and one
- * line, the card of the Age in focus (an Age already scored is the band alone, naming it). Click either to open the full block: the
- * VP sources, the Age's card with live progress, every earlier Age still open, and the notes.
- */
-export function EraObjectivesHud({ view, model }: { view: PlayerView; model: VpModel }) {
-  const hud = eraHud(view);
-  const win = howYouWin(model);
-  const expanded = useEraHudOpen();
-  if (!win || noEraHud()) return null;
-  const { focus } = hud;
-  const h = heading(focus, win.members);
-  // An Age already scored has nothing left to do: compact, the block is the band alone, and the band says which Age is kept.
-  const scoredBand = !expanded && focus.state === 'scored';
-  return <section className={`era-hud st-${focus.state}${expanded ? ' expanded' : ' compact'}${scoredBand ? ' band-only' : ''}`} data-testid="era-hud" data-state={focus.state} data-era={focus.era} data-open={expanded} aria-label="How you win: World Ages">
-    <HowYouWinLine win={win} open={expanded} toggle scored={scoredBand ? focus.name : undefined} />
-    {!expanded && !scoredBand && <Glance hud={hud} members={win.members} />}
-    {expanded && <>
-      <div className="eo-era" data-testid="era-hud-current">
-        <header className="eo-head">
-          <h5>{focus.state === 'scored' && <Icon name="ui-check" size={12} className="ui-mark" />}{h.title}</h5>
-          {focus.state === 'scored' && hud.older.length > 0
-            ? <button type="button" className="link eo-rule-link" data-testid="era-older" onClick={open}>{hud.older.map((o) => o.name).join(' and ')} still open</button>
-            : <span className="eo-rule">{h.rule}</span>}
-        </header>
-        {<ObjectiveRows lines={focus.lines} preview={focus.state === 'preview'} compact accounting view={view} era={focus.era} />}
-      </div>
-      {hud.entry && focus.state !== 'scored' && <EntryNote hud={hud} />}
-      {hud.older.length > 0 && focus.state !== 'scored' && <p className="eo-note older" data-testid="era-older">
-        <button type="button" className="link" onClick={open}>{hud.older.map((o) => o.name).join(' and ')} {hud.older.length > 1 ? 'are' : 'is'} still open to score</button>
-      </p>}
-      {hud.older.map(o => {
-        const prior = eraObjectivesFor(view, o.era);
-        return prior && <div className="eo-era eo-older" key={o.era}><header className="eo-head"><h5>{o.name} still open</h5></header><ObjectiveRows lines={prior.lines} view={view} era={o.era} compact /></div>;
-      })}
-    </>}
-  </section>;
-}
-
-/**
  * The research screen's Age header: the card of the Age in focus with progress, and when the next Age begins. Before any Age
  * begins it says when the first one does.
  */
@@ -190,7 +81,7 @@ export function EraObjectivesResearch({ view }: { view: PlayerView }) {
   const hud = eraHud(view);
   const { focus } = hud;
   const still = motionStill(useReducedMotion(), useCombatFx((st) => st.enabled));
-  // Keyed by seat, so each hot-seat player sees their own stamp.
+  // Keyed by seat so each online player sees their own stamp.
   const sealKey = `${view.me}:${focus.era}:${focus.state}`;
   const metSlots = focus.lines.filter((l) => l.met).map((l) => l.slot);
   const metKey = (slot: number) => `${view.me}:${focus.era}:${slot}:met`;
@@ -231,9 +122,9 @@ export function SidebarObjective({ view, model }: { view: PlayerView; model: VpM
   // The line follows the oldest open Age, which scores first.
   const focus = hud.oldest ?? (hud.focus.state === 'scored' ? null : hud.focus);
   const g = focus ? glance({ ...hud, focus }, win.members) : null;
-  return <section className="sidebar-objective" data-testid="era-hud" aria-label="How you win: next objective">
-    <button className="link sidebar-section-link age" onClick={open}>How you win {g?.line && <span className="sidebar-objective-stake">{g.tag}</span>}<Icon name="ui-chevron-right" size={12} /></button>
-    {g?.line && focus ? <div className="sidebar-next" role="group" aria-label={`${g.tag}: ${g.line.text}`} onClick={(e) => { if (!(e.target as Element).closest('button')) open(); }}><ObjectiveRows lines={[g.line]} preview={focus.state === 'preview'} compact view={view} era={focus.era} /></div> : <button className="link" onClick={open}>Age scored · see other ways to score</button>}
+  return <section className="sidebar-objective" data-testid="era-hud" aria-label="Next Age objective">
+    <h3 className="sidebar-section-link age">Next Age {g?.line && <span className="sidebar-objective-stake">{g.tag}</span>}</h3>
+    {g?.line && focus ? <div className="sidebar-next" role="group" aria-label={`${g.tag}: ${g.line.text}`}><ObjectiveRows lines={[g.line]} preview={focus.state === 'preview'} compact view={view} era={focus.era} /></div> : <div className="sidebar-next">Age scored</div>}
     {hud.focus.era < ERA_COUNT && !hud.noObjective && <small className="eo-next-reveal">The next Age begins when any empire enters the {eraName(hud.focus.era)} era.</small>}
   </section>;
 }

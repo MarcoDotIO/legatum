@@ -27,7 +27,7 @@ This is what `.github/workflows/deploy-web.yml` publishes to Cloudflare Pages. T
 
 ## App icon
 
-Every icon (the Atlas Seal: the wordmark's star-crowned A in an engraved roundel) comes from one script, `tools/design/app-icon/build.mjs`. Run `node tools/design/app-icon/build.mjs` from the repository root after changing it: it rewrites `public/favicon.svg` and the PNG favicons and `apple-touch-icon.png`.
+Every icon (the Atlas Seal: the wordmark's star-crowned A in an engraved roundel) comes from one script, `tools/design/app-icon/build.mjs`. Run `node tools/design/app-icon/build.mjs` from the repository root after changing it: it rewrites `public/favicon.svg` and the PNG favicons and `apple-touch-icon.png`. `public/favicon.ico` (the 16 and 32 px favicons packed together) and `public/apple-touch-icon-precomposed.png` (a copy of `apple-touch-icon.png`) are served for clients that ask for those fixed names; the script does not write them, so rebuild them from the new PNGs after a change.
 
 ## Online games
 
@@ -60,7 +60,7 @@ working run the files your change touches, for example
 `npx playwright test e2e/game.spec.ts`. `e2e/game.spec.ts` holds the core flows:
 Single Player (Small map, Hard AI, production, more turns, and the VP track),
 autosave/reload/Continue with an exact game-state comparison,
-two-human Hot Seat, and online host/join in separate browser contexts. Every spec
+online host/join in separate browser contexts. Every spec
 fails on any browser console error or uncaught exception, including errors from
 a second online context.
 

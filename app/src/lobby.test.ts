@@ -75,14 +75,14 @@ describe('the levels a player is offered', () => {
     expect(trainingSwitch(true, '?training=1', null)).toBe(true);
   });
 
-  it('a stored Training or HardSearch preference reads as Hard, for the default and for a seat', () => {
+  it('a stored Training or HardSearch preference reads as Hard, ignoring old seat overrides', () => {
     for (const old of ['Training', 'HardSearch']) {
       const data = profile();
       data.set(LOBBY_DIFFICULTY_KEY, JSON.stringify({ level: old, seats: { 'solo:2': old, 'solo:3': 'Easy' } }));
-      expect(readDifficultyPreference()).toEqual({ level: 'Hard', seats: { 'solo:2': 'Hard', 'solo:3': 'Easy' } });
+      expect(readDifficultyPreference()).toEqual({ level: 'Hard' });
       const lobby = newLobby('solo', '9');
       expect(levelOf(lobby)).toBe('Hard');
-      expect(lobby.slots.map((s) => s.kind === 'ai' ? levelOf(s) : null)).toEqual([null, 'Hard', 'Hard', 'Easy', 'Hard', 'Hard']);
+      expect(lobby.slots.map((s) => s.kind === 'ai' ? levelOf(s) : null)).toEqual([null, 'Hard', 'Hard', 'Hard', 'Hard', 'Hard']);
       expect(buildSetup(lobby).players.some((p) => p.search)).toBe(false);
       // Opening the lobby rewrote the preference without the level that is not offered.
       expect(data.get(LOBBY_DIFFICULTY_KEY)).not.toMatch(/Training|HardSearch/);
@@ -107,11 +107,11 @@ describe('lobby', () => {
     expect(levelOf(lobby)).toBe('Hard');
     expect(lobby.slots.slice(1).every((seat) => levelOf(seat) === 'Hard')).toBe(true);
     expect(buildSetup(lobby).players.slice(1).every((player) => player.difficulty === 'Hard')).toBe(true);
-    const converted = setSlot(newLobby('hotseat', '42'), 1, { kind: 'ai' });
+    const converted = setSlot(newLobby('host', '42'), 1, { kind: 'ai' });
     expect(converted.slots[1].difficulty).toBe('Hard');
   });
 
-  it('keeps the all-AI choice and individual overrides across a version bump', () => {
+  it('keeps the game-wide choice and discards old individual overrides across a version bump', () => {
     const data = researchProfile();
     const chosen = setSlot(setDifficulty(newLobby('solo', '1'), 'Easy'), 2, levelFields('Training'));
     rememberDifficulty(chosen);
@@ -119,15 +119,15 @@ describe('lobby', () => {
     const reopened = newLobby('solo', '2');
     expect(levelOf(reopened)).toBe('Easy');
     expect(levelOf(reopened.slots[1])).toBe('Easy');
-    expect(levelOf(reopened.slots[2])).toBe('Training');
+    expect(levelOf(reopened.slots[2])).toBe('Easy');
     expect(LOBBY_DIFFICULTY_KEY).not.toMatch(/v\d/);
   });
 
-  it('keeps a solo seat override when another lobby mode opens', () => {
+  it('does not restore a solo seat override when another lobby mode opens', () => {
     profile();
     rememberDifficulty(setSlot(newLobby('solo', '1'), 1, levelFields('Normal')));
-    newLobby('hotseat', '2');
-    expect(levelOf(newLobby('solo', '3').slots[1])).toBe('Normal');
+    newLobby('host', '2');
+    expect(levelOf(newLobby('solo', '3').slots[1])).toBe('Hard');
   });
 
   it('reports when a chosen difficulty cannot be persisted', () => {
@@ -147,7 +147,7 @@ describe('lobby', () => {
 
   it('rejects empty, fractional, negative, non-finite and overflowing enabled turn limits', () => {
     for (const turnLimit of [0, -1, 1.5, Infinity, NaN, MAX_TURN_LIMIT + 1]) {
-      expect(problems({ ...newLobby('solo', '42'), turnLimit }).join()).toMatch(/Turn limit/);
+      expect(problems({ ...newLobby('solo', '42'), turnLimit }).join()).toMatch(/Enter a last turn/);
     }
   });
   it('single player defaults to a free-for-all on Standard: you + 5 AIs, all on their own teams, one solo target each', () => {
@@ -164,8 +164,8 @@ describe('lobby', () => {
     expect(problems(l)).toEqual([]);
   });
 
-  it('hot seat defaults to co-op vs AI: the humans share a team with a two-empire target', () => {
-    const l = newLobby('hotseat', '42');
+  it('online hosting defaults to co-op vs AI: the humans share a team with a two-empire target', () => {
+    const l = newLobby('host', '42');
     expect(l.preset).toBe('coop');
     const t = teams(l);
     expect(t[0].slots).toEqual([0, 1]);
@@ -184,7 +184,7 @@ describe('lobby', () => {
   });
 
   it('puts humans first in player order and gives each seat its faction\'s colour', () => {
-    let l = newLobby('hotseat', '9');
+    let l = newLobby('host', '9');
     l = setSlot(l, 1, { kind: 'ai' });
     l = setSlot(l, 5, { kind: 'human' });
     expect(l.slots[5].name).toBe('Player 6');
@@ -346,7 +346,7 @@ describe('lobby', () => {
       expect(ffa('Large').slots).toHaveLength(8);
       expect(applyPreset(newLobby('solo', '1'), 'teams').slots).toHaveLength(8);
       expect(applyPreset(newLobby('solo', '1'), 'coop').slots).toHaveLength(8);
-      const coop = newLobby('hotseat', '1');
+      const coop = newLobby('host', '1');
       expect(coop.slots.map((s) => s.kind)).toEqual(['you', 'human', 'ai', 'ai', 'ai', 'ai', 'ai', 'ai']);
     });
 
@@ -376,7 +376,7 @@ describe('lobby', () => {
     });
 
     it('never removes a human seat', () => {
-      let l = newLobby('hotseat', '1');
+      let l = newLobby('host', '1');
       l = setSlot(l, 7, { kind: 'human' });
       l = setSlot(l, 6, { kind: 'human' });
       const s = setMapSize(l, 'Small');
@@ -386,7 +386,7 @@ describe('lobby', () => {
     });
 
     it('co-op keeps the humans on one team against at least one other team', () => {
-      const s = setMapSize(newLobby('hotseat', '1'), 'Small');
+      const s = setMapSize(newLobby('host', '1'), 'Small');
       expect(count(s)).toBe(4);
       expect(teams(s)[0].slots).toEqual([0, 1]);
       expect(problems(s)).toEqual([]);

@@ -28,7 +28,7 @@ describe('faction sheets', () => {
     for (const line of copy) {
       expect(line).not.toMatch(/free lunch|forever|bleed yields|nothing is cheap/i);
     }
-    expect(FACTION_SHEETS.Byzantium.pairs[0].strength).toBe(companyRule());
+    expect(FACTION_SHEETS.Byzantium.pairs[0].strengthDetail).toBe(companyRule());
     expect(FACTION_SHEETS.Byzantium.pairs[0].price).toBe(THIN_LEVIES);
     expect(FACTION_SHEETS.Byzantium.pairs[0].price).not.toContain('120%');
     const swiss = FACTION_SHEETS.Switzerland.pairs[0].strength;
@@ -36,7 +36,7 @@ describe('faction sheets', () => {
     expect(swiss).toBe(FACTION_INFO.Switzerland.ability.split(' You buy buildings and units')[0]);
     // One rule, one wording: the sheet's second row is the faction info's buying and capture sentences.
     expect(FACTION_INFO.Switzerland.ability).toContain(FACTION_SHEETS.Switzerland.pairs[1].strength);
-    expect(FACTION_INFO.Switzerland.weakness).toContain(FACTION_SHEETS.Switzerland.pairs[1].price);
+    expect(FACTION_INFO.Switzerland.weakness).toContain(FACTION_SHEETS.Switzerland.pairs[1].priceDetail);
     expect(swiss).not.toMatch(/pair|up to|max/i);
     expect(FACTION_SHEETS.Germany.pairs[0].strength).toContain('Ruhr Foundry: +6 Production');
     expect(FACTION_SHEETS.Germany.pairs[0].price).toBeUndefined();
@@ -47,10 +47,10 @@ describe('faction sheets', () => {
     expect(FACTION_SHEETS.Germany.pairs[3].strength).toContain('Your Gold and Science projects turn 50% and 25% of a city’s Production into Gold and Science');
     // A drawback that only restates its ability is not one: the project row has no price.
     expect(FACTION_SHEETS.Germany.pairs[3].price).toBeUndefined();
-    expect(FACTION_SHEETS.India.pairs[0].price).toContain('Production never falls below 3');
-    expect(FACTION_SHEETS.India.pairs[1].price).toContain('half the Gold they make');
+    expect(FACTION_SHEETS.India.pairs[0].priceDetail).toContain('Production never falls below 3');
+    expect(FACTION_SHEETS.India.pairs[1].priceDetail).toContain('half the Gold they make');
     expect(FACTION_SHEETS.India.pairs[2].strength).toContain('Imperial Diwan');
-    expect(FACTION_SHEETS.Mongols.pairs[0].price).toContain('You never build Walls and buy no Siege before the Medieval era.');
+    expect(FACTION_SHEETS.Mongols.pairs[0].price).toContain('You never build or upgrade Walls and buy no Siege before the Medieval era.');
     expect(FACTION_SHEETS.Mongols.pairs[0].price).toContain('buy no Siege before the Medieval era');
     expect(FACTION_SHEETS.Athens.lore).toBe('Classical Athens was known for civic debate and learning. In play, Athenian scholarship brings quick discoveries at a cost to its treasury.');
     expect(FACTION_SHEETS.Athens.lore).not.toContain('excluded many residents');
@@ -59,7 +59,7 @@ describe('faction sheets', () => {
 
   it('shows Rome’s unit and building as cards, with its Settler restriction in the cost column', () => {
     expect(sheetCards('Rome').map((card) => card.name)).toEqual(['Legionary', 'Castrum']);
-    expect(FACTION_SHEETS.Rome.pairs[0].strength).toBe('A full-health melee veteran (level 1 or higher) can found a city; the unit is consumed.');
+    expect(FACTION_SHEETS.Rome.pairs[0].strengthDetail).toBe('A full-health melee veteran (level 1 or higher) can found a city; the unit is consumed.');
     expect(FACTION_SHEETS.Rome.pairs[0].price).toBe('Rome cannot train or buy Settlers.');
     expect(FACTION_SHEETS.Rome.pairs.slice(1).every((pair) => pair.onCard)).toBe(true);
     expect(FACTION_SHEETS.Rome).not.toHaveProperty('piece');

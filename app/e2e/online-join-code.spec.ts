@@ -4,6 +4,7 @@ import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { chooseCapitalProduction } from './opening';
 import { endPlanning } from './turnActions';
+import { listedGameName } from './listedName';
 
 // A host locks its game with a join code and removes a player (plans/online-play.md): the real relay under
 // wrangler dev, the host's engine in its own tab, one guest in a second browser context.
@@ -28,11 +29,11 @@ async function snap(page: Page, name: string, show?: Locator) {
 async function hostLocked(host: Page, code: string) {
   await host.goto('/');
   await host.getByRole('button', { name: /^Multiplayer/ }).click();
-  await host.getByLabel('Your name in the game list').fill('Ada');
+  await host.getByLabel('Your name', { exact: true }).fill('Ada');
   await host.getByLabel('Join code (optional)').fill(code);
   await snap(host, 'host-game-join-code');
   await host.getByRole('button', { name: /^Host Game/ }).click();
-  await expect(host.getByRole('heading', { name: 'Host Game', exact: true })).toBeVisible();
+  await expect(host.getByRole('heading', { name: 'Game room', exact: true })).toBeVisible();
   const small = host.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: /^Small/ });
   await small.click();
   await host.getByLabel('Map seed', { exact: true }).fill('20240926');
@@ -45,12 +46,12 @@ test('Online: a locked game asks the guest for its code, and the host can remove
   await guest.goto('/');
   await guest.getByRole('button', { name: /^Multiplayer/ }).click();
   await guest.getByRole('button', { name: /^Join Game/ }).click();
-  const row = guest.locator('.online-room').filter({ hasText: 'Ada' });
+  const row = guest.locator('.online-room').filter({ hasText: await listedGameName(host) });
   await expect(row).toHaveCount(1, { timeout: 20_000 });
   await expect(row).toContainText('Locked');
   await snap(guest, 'lobby-locked');
   await row.getByRole('button', { name: /^Join/ }).click();
-  await expect(guest.getByRole('heading', { name: 'Join Game', exact: true })).toBeVisible();
+  await expect(guest.getByRole('heading', { name: 'Game room', exact: true })).toBeVisible();
 
   // The seat button waits for the code; a wrong one is refused in plain words.
   const take = guest.getByRole('row').nth(2).getByRole('button', { name: 'Take seat', exact: true });
@@ -100,7 +101,7 @@ test('Online: removing a player in a running game does not hold up the turn', as
   await guest.goto('/');
   await guest.getByRole('button', { name: /^Multiplayer/ }).click();
   await guest.getByRole('button', { name: /^Join Game/ }).click();
-  await guest.locator('.online-room').filter({ hasText: 'Ada' }).getByRole('button', { name: /^Join/ }).click();
+  await guest.locator('.online-room').filter({ hasText: await listedGameName(host) }).getByRole('button', { name: /^Join/ }).click();
   await guest.getByLabel('Join code', { exact: true }).fill('WOLF42');
   await guest.getByRole('row').nth(2).getByRole('button', { name: 'Take seat', exact: true }).click();
   await guest.getByRole('button', { name: /^Ready Lock/ }).click();

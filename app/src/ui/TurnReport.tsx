@@ -9,7 +9,7 @@ import {
 import { EmpireMark } from './EmpireIdentity';
 import { Icon, Kbd, ToneIcon } from './bits';
 import { CATEGORY_ICON } from '../reportIcons';
-import { RingMedallion } from './ringMedallion';
+import { RingMedallion, TreatyEmblem } from './ringMedallion';
 import { StarDivider } from './premium';
 import { useCoarsePointer } from './useCoarsePointer';
 import { Amounts } from './Amounts';
@@ -240,7 +240,7 @@ export function TurnReport({ embedded = false }: { embedded?: boolean }) {
                       }}
                     >
                       <span className="rline-main">
-                        <span className={`rline-tone ${l.tone}`} aria-hidden="true"><RingMedallion icon={l.icon ?? CATEGORY_ICON[l.category]} tone={l.tone} size={26} /></span>
+                        <span className={`rline-tone ${l.tone}`} aria-hidden="true">{l.treaty ? <TreatyEmblem kind={l.treaty} size={26} /> : <RingMedallion icon={l.icon ?? CATEGORY_ICON[l.category]} tone={l.tone} size={26} />}</span>
                         {mark.label && <span className="sr-only">{mark.label}: </span>}
                         {l.empire !== undefined && views && <EmpireMark view={views[seat]} team={l.empire} size={18} />}
                         {l.promotion && <RankMark level={l.promotion.level} faction={l.promotion.faction} compact />}
@@ -255,7 +255,7 @@ export function TurnReport({ embedded = false }: { embedded?: boolean }) {
                     {l.at && <button className="link rline-show-map" onClick={() => show(l)}>Show on map</button>}
                     {l.reopenTech && <button className="link rline-show-card" onClick={() => useGame.getState().reopenUnlock(l.reopenTech!)}>Show card</button>}
                     {l.reopenEra && <button className="link rline-show-card" onClick={() => useGame.getState().reopenEra(l.reopenEra!.era, l.reopenEra!.first, l.reopenEra!.age)}>{l.reopenEra.age != null ? 'Show score check' : 'Show card'}</button>}
-                    {l.openLedger && <button className="link rline-show-card" onClick={() => set({ vpExpanded: true })}>See how you win</button>}
+                    {l.openLedger && <button className="link rline-show-card" onClick={() => set({ vpExpanded: true })}>Score ledger</button>}
                     {l.reopenHold && <button className="link rline-show-card" onClick={() => set({ holdReopen: l.reopenHold! })}>Show card</button>}
                     {l.openInboxTeam !== undefined && <button className="btn primary" onClick={() => set({
                       diplomacyOpen: true, diplomacyTeam: l.openInboxTeam!, reportOpen: false,

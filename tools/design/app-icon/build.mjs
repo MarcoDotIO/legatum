@@ -8,6 +8,7 @@
 //   app/public/favicon.svg                    favicon, drawn for 16-32 px (also served by the dashboard)
 //   app/public/favicon-32.png, favicon-16.png PNG fallbacks
 //   app/public/apple-touch-icon.png           180 px full-bleed
+//   app/public/icon-192.png, icon-512.png     the same square, for the installed web app (manifest.webmanifest)
 // The parchment texture (parchment.jpg) was generated with Codex image generation; the mark itself
 // is pure vector.
 import fs from 'node:fs';
@@ -160,6 +161,8 @@ try {
   await render(browser, faviconSvg(), path.join(pub, 'favicon-32.png'), 32);
   await render(browser, faviconSvg(), path.join(pub, 'favicon-16.png'), 16);
   await render(browser, touchIconSvg(detailed()), path.join(pub, 'apple-touch-icon.png'), 180);
+  await render(browser, touchIconSvg(detailed()), path.join(pub, 'icon-192.png'), 192);
+  await render(browser, touchIconSvg(detailed()), path.join(pub, 'icon-512.png'), 512);
 } finally {
   await browser.close();
 }

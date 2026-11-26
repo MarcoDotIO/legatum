@@ -9,7 +9,12 @@ use std::{env, fs};
 fn main() {
     for path in env::args().skip(1) {
         let raw = fs::read_to_string(&path).expect("read scenario");
-        let mut file = ScenarioFile::parse(&raw).expect("parse scenario");
+        let mut value: serde_json::Value = serde_json::from_str(&raw).expect("parse scenario JSON");
+        value
+            .as_object_mut()
+            .expect("scenario object")
+            .remove("lab");
+        let mut file = ScenarioFile::parse(&value.to_string()).expect("parse scenario");
         let old = file.state.hash.clone();
         let state = decode_state_unchecked(&file.state).expect("decode state");
         file.state = encode_state(&state);

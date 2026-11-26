@@ -453,6 +453,8 @@ fn arena(c: &Case, seed: u64) -> (GameState, Option<CityId>, Option<Hex>) {
                 last_purchase_turn: None,
                 bought: None,
                 buildings,
+                walls_level: u8::from(c.walls),
+                walls_damage: 0,
                 hp: c.city_hp,
                 tiles_claimed: 0,
                 grown_tiles: Vec::new(),

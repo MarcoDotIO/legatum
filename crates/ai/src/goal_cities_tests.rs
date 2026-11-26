@@ -88,7 +88,9 @@ fn we_garrison_and_defend_a_goal_city_we_hold_first() {
     let mut v = world();
     v.players[0].faction = Faction::Rome;
     v.colonias = vec![goal_city(ME, ME, 1, off(4, 4))];
-    let p = hard(&v);
+    // `rome_colonia` is off by default (2026-11-23); the guard is the gene's behaviour.
+    let mut p = hard(&v);
+    p.decisions.rome_colonia = 1;
     assert!(p.holds_goal_city(city(&v, 1)));
     assert!(p.goal_city_unguarded(city(&v, 1)));
     assert_eq!(p.hall_defense_percent(city(&v, 1)), 150);
@@ -96,13 +98,15 @@ fn we_garrison_and_defend_a_goal_city_we_hold_first() {
         .unit(10, ME, UnitKind::Spearman, off(4, 4))
         .unit(11, ME, UnitKind::Spearman, off(5, 4))
         .build();
-    assert!(!hard(&v).goal_city_unguarded(city(&v, 1)));
+    let mut guarded = hard(&v);
+    guarded.decisions.rome_colonia = 1;
+    assert!(!guarded.goal_city_unguarded(city(&v, 1)));
     // A captured one is ours to hold too; with the Rome gene off our own is ordinary.
     let mut captured = world();
     captured.royal_tombs = vec![goal_city(ENEMY, ME, 1, off(4, 4))];
     assert!(hard(&captured).holds_goal_city(city(&captured, 1)));
-    let mut off_gene = hard(&v);
-    off_gene.decisions.rome_colonia = 0;
+    let off_gene = hard(&v);
+    assert_eq!(off_gene.decisions.rome_colonia, 0);
     assert!(!off_gene.holds_goal_city(city(&v, 1)));
 }
 

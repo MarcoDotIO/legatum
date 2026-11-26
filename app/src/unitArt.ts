@@ -40,7 +40,7 @@ const FACTION_ART: Partial<Record<Faction, Partial<Record<UnitKind, string>>>> =
   Byzantium: { Pikeman: 'tagmatic-soldier' },
   Rome: { Phalangite: 'legionary' },
   Aztecs: { Spearman: 'eagle-warrior' },
-  Egypt: { Spearman: 'medjay' },
+  Egypt: { Archer: 'chariot-archer' },
   Celts: { Phalangite: 'gaesatae' },
   Athens: { CompositeArcher: 'peltast' },
   India: { Knight: 'war-elephant' },
@@ -91,6 +91,16 @@ export function miniatureImage(kind: UnitKind, faction?: Faction): HTMLImageElem
  * Crossbowman, Scout). Any other kind (a Company that turned barbarian) keeps its ordinary figure on the barbarian base.
  */
 export const barbarianArtSlug = (kind: UnitKind): string => miniatures.has(`barbarian-${UNIT_ART[kind]}`) ? `barbarian-${UNIT_ART[kind]}` : UNIT_ART[kind];
+
+/**
+ * The miniature URL a map draws for a unit: a barbarian's own raider, else the art of the unit's origin (a hired
+ * Company keeps its people's figure) or its owner's faction. Every map renderer picks unit art through this, never
+ * through a seat's colour faction (art review, PR 139).
+ */
+export function mapUnitMiniatureUrl(u: { kind: UnitKind; owner: number; origin?: Faction | null }, factionOf: ReadonlyMap<number, Faction>, barbarian: boolean): string | null {
+  if (barbarian) return miniatures.get(barbarianArtSlug(u.kind)) ?? null;
+  return unitMiniatureUrl(u.kind, u.origin ?? factionOf.get(u.owner));
+}
 
 /** A barbarian's painted miniature (256 px) once loaded. */
 export function barbarianMiniatureImage(kind: UnitKind): HTMLImageElement | null {

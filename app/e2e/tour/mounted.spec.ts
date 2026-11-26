@@ -1,5 +1,5 @@
 // Screen tour, the mounted rebalance (2026-10-31): the forecast lines "Melee line against mounted (+40%)", "Mounted against ranged (+40%)" and
-// "Mounted against a city (-33%)", the mounted unit cards, the production picker, the Guide's unit-class section and the Chivalry unlock.
+// "Mounted against a city (-33%)", the mounted unit cards, the production picker, How to Play's unit-class section and the Chivalry unlock.
 // Run alone with `npx playwright test e2e/tour/mounted`. Shots land in test-results/screen-tour/<size>/mounted/; each forecast also saves its text.
 import { mkdir, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
@@ -208,12 +208,12 @@ for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
     await shot(page, size, '32-knight-hovercard');
   });
 
-  test('Guide: the unit-class section (The matchup is a number)', async ({ page }) => {
+  test('How to Play: the unit-class section (The matchup is a number)', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });
     await expect(guide).toBeVisible();
-    await guide.getByRole('navigation', { name: 'Guide chapters' }).getByRole('button').filter({ hasText: 'Simultaneous combat' }).click();
+    await guide.getByRole('navigation', { name: 'How to Play chapters' }).getByRole('button').filter({ hasText: 'Simultaneous combat' }).click();
     const p = guide.locator('p', { hasText: 'The matchup is a number' });
     await p.scrollIntoViewIfNeeded();
     await expect(p).toContainText('Mounted gets the same bonus charging ranged units, but none when they shoot at it');

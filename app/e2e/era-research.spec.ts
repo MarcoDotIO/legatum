@@ -10,7 +10,7 @@ import { endPlanning } from './turnActions';
 import { auditLayout } from './layoutAudit';
 import { coreFixture } from '../src/test/coreFixture';
 import { researchFixture } from '../src/test/researchFixture';
-import { TECHS, TECH_ERA } from '../src/data';
+import { ERA_NAMES, eraTechs, TECHS, TECH_ERA } from '../src/data';
 import type { useGame } from '../src/store';
 
 type GameWindow = Window & { legatum: typeof useGame };
@@ -80,11 +80,13 @@ for (const size of SIZES) test.describe(`era research ${size.width}x${size.heigh
     await expect(d.getByTestId('era-progress')).toHaveText('2 of 5 known');
     // Locked later eras: dim rows with their names and tech counts.
     const rows = d.locator('.era-row');
-    await expect(rows).toHaveCount(6);
-    await expect(rows.nth(0)).toContainText('Classical');
-    await expect(rows.nth(0)).toContainText('5 technologies');
-    await expect(rows.nth(5)).toContainText('Future');
-    await expect(d.locator('.era-row[data-state="locked"]')).toHaveCount(6);
+    const laterEras = ERA_NAMES.slice(1);
+    await expect(rows).toHaveCount(laterEras.length);
+    await expect(rows.locator('.era-row-name')).toHaveText(laterEras);
+    for (let i = 0; i < laterEras.length; i++) {
+      await expect(rows.nth(i)).toContainText(`${eraTechs(i + 1).length} technologies`);
+    }
+    await expect(d.locator('.era-row[data-state="locked"]')).toHaveCount(laterEras.length);
 
     // A card: cost, the diffusion discount, no boost, the unlocks.
     const writing = d.locator('.era-card[data-tech="Writing"]');
@@ -187,7 +189,7 @@ for (const size of SIZES) test.describe(`era research ${size.width}x${size.heigh
     const research = await page.locator('.research-chip').boundingBox();
     expect(research!.x).toBeGreaterThanOrEqual(box.x + box.width - 1);
     await shot(page, size, '05-topbar');
-    await chip.click();
+    await page.locator('.topbar .research-chip').click();
     await expect(dialog(page)).toBeVisible();
   });
 
@@ -218,14 +220,15 @@ for (const size of SIZES) test.describe(`era research ${size.width}x${size.heigh
     await shot(page, size, '07-classical-research');
     await page.keyboard.press('Escape');
 
-    // A rival's entry: a banner over the map, and a highlighted line in the report.
+    // A rival following into an era gets a banner over the map. The first entrant is
+    // announced by the World Age score check instead (covered in ScoreCheck.test.tsx).
     await page.evaluate(() => {
       const s = (window as unknown as GameWindow).legatum.getState();
-      s.set({ report: { turn: s.views![s.seat].turn, hash: 'era', lines: [[], []], events: [[{ type: 'EraEntered', player: 1, era: 3, first: true }], []] }, reportOpen: false });
+      s.set({ report: { turn: s.views![s.seat].turn, hash: 'era', lines: [[], []], events: [[{ type: 'EraEntered', player: 1, era: 3, first: false }], []] }, reportOpen: false });
     });
     const notice = page.getByTestId('era-notice');
     await expect(notice).toBeVisible();
-    await expect(notice).toContainText('entered the Medieval era first');
+    await expect(notice.locator('.era-notice-text')).toHaveText('Mongols entered the Medieval era');
     await shot(page, size, '08-rival-era-notice');
   });
 });

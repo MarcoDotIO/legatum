@@ -12,7 +12,7 @@ export function openDeclareWar(view: PlayerView, team: number) {
 }
 
 /** The plain facts and the actions against a team close to winning: who it is, who fights it, and what you may do about it. */
-export function RivalWin({ view, rival, declare = true }: { view: PlayerView; rival: Rival; declare?: boolean }) {
+export function RivalWin({ view, rival, declare = true, showSummary = true }: { view: PlayerView; rival: Rival; declare?: boolean; showSummary?: boolean }) {
   const orders = useGame((s) => s.orders[s.seat] ?? []);
   const set = useGame((s) => s.set);
   const editOrders = useGame((s) => s.editOrders);
@@ -20,7 +20,7 @@ export function RivalWin({ view, rival, declare = true }: { view: PlayerView; ri
   const people = empireHeadName(view, rival.team);
   const blocked = rival.declare && 'blocked' in rival.declare ? rival.declare.blocked : null;
   return <div className="rival-win" data-testid="rival-win">
-    <p className="rival-win-line">{rivalLine(view, rival)}</p>
+    {showSummary && <p className="rival-win-line">{rivalLine(view, rival)}</p>}
     {at && <p className="rival-win-line muted">{at}</p>}
     {blocked && <p className="rival-win-line muted" data-testid="rival-declare-blocked">You cannot declare war on {people} now: <Amounts text={blocked} /></p>}
     <div className="rival-win-actions">
@@ -35,7 +35,7 @@ export function RivalWin({ view, rival, declare = true }: { view: PlayerView; ri
           {cost && <small className="rival-cost">Costs {cost}</small>}
         </span>;
       })}
-      <button className="link" onClick={() => set({ vpExpanded: true })}>Show what holds their VP</button>
+      <button className="link" onClick={() => set({ vpExpanded: true })}>Score ledger</button>
     </div>
   </div>;
 }

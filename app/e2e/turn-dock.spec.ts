@@ -73,7 +73,7 @@ for (const humans of [1, 2, 3]) {
     const scroll = (await page.locator('.sidebar-scroll').boundingBox())!;
     expect(scroll.y + scroll.height).toBeLessThanOrEqual(cta.y);
     // The objective sheet is a modal: it covers the dock while open and gives it back whole on Escape.
-    await page.locator('button.vh-chip').click();
+    await page.locator('.vp .vhc-head button.link').click();
     await expect(page.getByTestId('objective-sheet')).toBeVisible();
     const sheet = (await page.getByTestId('objective-sheet').boundingBox())!;
     expect(sheet.y).toBeGreaterThanOrEqual(0);

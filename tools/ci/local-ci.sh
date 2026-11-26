@@ -64,6 +64,9 @@ fi
 step "App tests" bash -c 'cd app && CI=true npm test'
 step "App build" bash -c 'cd app && npm run build'
 step "App build references" node tools/release/check-dist-refs.mjs app/dist
+step "Relay dependencies" bash -c 'cd infra/relay && npm ci'
+step "Browser smoke tests (site build)" env LEGATUM_RELAY_URL=http://127.0.0.1:8787 scripts/build-web.sh --skip-wasm
+step "Browser smoke tests" bash -c 'cd app && npx playwright test --trace off --reporter=list e2e/game.spec.ts e2e/exit-to-title.spec.ts e2e/turn-flow.spec.ts e2e/contrast.spec.ts'
 
 {
   echo "### Local CI: $(git rev-parse --short HEAD) on $(uname -sm), $(getconf _NPROCESSORS_ONLN 2>/dev/null || echo '?') cores"

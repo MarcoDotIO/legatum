@@ -192,7 +192,7 @@ function drawEmphasis(ctx: CanvasRenderingContext2D, x: number, y: number, radiu
 }
 
 /** Draw every known resource. Runs before units, banners and routes so they stay on top. `emphasis`: the Resources overlay rings each one. */
-export function drawResourceIcons(ctx: CanvasRenderingContext2D, view: PlayerView, cam: Camera, width: number, height: number, dpr: number, look: LookId, covers: readonly Cover[] = [], emphasis = false) {
+export function drawResourceIcons(ctx: CanvasRenderingContext2D, view: PlayerView, cam: Camera, width: number, height: number, dpr: number, look: LookId, covers: readonly Cover[] = [], emphasis = false, towns: readonly (Cover & { tile: number })[] = []) {
   const r = HEX_SIZE * cam.zoom;
   const detail = resourceDetail(r);
   const art = improvementDetail(r) === 'art';
@@ -228,7 +228,9 @@ export function drawResourceIcons(ctx: CanvasRenderingContext2D, view: PlayerVie
       continue;
     }
     const slots = cities.has(i) ? town : open;
-    const p = pickSlot(x, cy, (counts.get(i) ?? 0) > 1 ? { top: slots.stacked, side: slots.side } : slots, covers);
+    // A neighbouring town's art counts as a cover (its own tile keeps its town slots).
+    const near = towns.length ? [...covers, ...towns.filter((c) => c.tile !== i)] : covers;
+    const p = pickSlot(x, cy, (counts.get(i) ?? 0) > 1 ? { top: slots.stacked, side: slots.side } : slots, near);
     const s = resourceArtSprite(res, 2 * p.radius * dpr);
     if (!s) {
       // No painted medallion (still loading, or none made for this resource): its far-tier mark stands in, so the deposit is never invisible.

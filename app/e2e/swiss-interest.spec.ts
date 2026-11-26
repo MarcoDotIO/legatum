@@ -1,5 +1,5 @@
 // Switzerland's tolls and interest in plain words (user, 2026-10-17: "'per complete pair' is not normal
-// language"; interest has no cap): the faction sheet from the real picker, the Guide, and the Gold
+// language"; interest has no cap): the faction sheet from the real picker, How to Play, and the Gold
 // breakdown's interest line. Set SWISS_SHOTS to a folder to keep a screenshot of each at both laptop sizes.
 import { join } from 'node:path';
 import type { Page } from '@playwright/test';
@@ -69,12 +69,12 @@ for (const size of SIZES) {
   });
 }
 
-test('the Guide uses the same words', async ({ page }) => {
+test('How to Play uses the same words', async ({ page }) => {
   await page.goto('/?client=wasm');
   await page.getByRole('button', { name: /^How to Play/ }).click();
   const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });
   await expect(guide).toBeVisible();
-  const chapters = guide.getByRole('navigation', { name: 'Guide chapters' }).getByRole('button');
+  const chapters = guide.getByRole('navigation', { name: 'How to Play chapters' }).getByRole('button');
   for (const label of ['Cities & research', 'The peoples']) {
     await chapters.filter({ hasText: label }).click();
     await expect(guide).toContainText(SENTENCE);

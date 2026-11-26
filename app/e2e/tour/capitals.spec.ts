@@ -206,7 +206,7 @@ for (const size of SIZES) test.describe(`original capitals ${size.name}`, () => 
     await expect(panel.locator('.cp-kicker .capital-star')).toHaveCount(0);
   });
 
-  test('the Guide explains the star', async ({ page }) => {
+  test('How to Play explains the star', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });

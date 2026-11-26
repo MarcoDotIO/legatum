@@ -269,7 +269,7 @@ pub fn play(
     others: Option<&AiParams>,
     run: u32,
 ) -> Result<Run, String> {
-    let mut start = file.prepare(false)?;
+    let mut start = file.prepare()?;
     start.setup.seed = run_seed(start.setup.seed, run);
     let script = war_script::load(&file.id)?;
     let seat = file.seat;

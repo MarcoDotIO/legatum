@@ -32,7 +32,7 @@ The goal is that on Hard the user usually doesn't win, through better AI decisio
 - **Rank fixes across factions** (user, 2026-10-28: "i win whether I play a defensive faction playing defense or ... sparta and just go offense all game"): rank recommendations by how much they'd cut his win rate with any faction, citing the same pattern in earlier games; faction balance gets one line unless he asks.
 
 - **Questions for the designer are only about intent (user, 2026-11-07): "Only ask me questions that you cannot automatically definitively know from the game logs."** Settle what he saw, knew, placed or ordered, and when, from the tape: per-seat visibility, reveal turns, orders. Ask him only about plans and reasons. Drop any question the tape answers, and state the answer in the review instead.
-- **Scenario Lab:** each review ends by cutting 1 or 2 scenarios (`tools/scenarios/cut.sh`, see `scenarios/README.md`) and deletes scenarios that no longer teach anything; log the designer's runs in `references/scenario-lab-feedback.md`.
+- **AI measurement positions:** cut a position from a game when it tests a specific AI gap; remove obsolete ones. The player-facing Scenario Lab was removed on 2026-11-22.
 
 ## His early game, T1 to T60 (for a model seat; 45 tapes, `docs/playtests/early-defence.md`)
 Resolves "capital: Walls first" against "Granary, Archer, three Settlers": the first is how he plays now, the second is his opening before 2026-11-07 and when the rush faction is far. Counts are his games that show the rule.
@@ -93,4 +93,4 @@ Check each review against these, add evidence to the reference table, and update
 | `references/methods.md` | Running a review: replaying a save at its tag, rubber-band accounting, what-if branches, seat models, tracing a gene, finding the right build |
 | `references/patterns.md` | Adding evidence to a pattern or reading why its status is what it is |
 | `references/verdicts.md` | Recording a game's verdict (append a row) or comparing with past games |
-| `references/scenario-lab-feedback.md` | Reading what the designer said about past scenarios and which were cut |
+| `references/scenario-lab-feedback.md` | Historical notes on retired player runs and position cuts |

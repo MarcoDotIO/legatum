@@ -4,7 +4,7 @@
 // strokes, fills, clipped drawImage calls of art already on the map, and a one-off engraving of each sprite (`inkOf`),
 // so a turn with many moments stays cheap; nothing here uses filters, shadowBlur or per-frame canvases.
 import type { Faction, PlayerView } from '../types';
-import { cityImage, cityStem, cityTier, markStem, spriteSize, CITY_CANVAS, CITY_GROUND } from './cityArt';
+import { cityImage, cityStem, cityTier, drawCityCanvas, markStem, spriteSize, walledTown, CITY_CANVAS, CITY_GROUND, WALL_CUT, WALLED_TOWN_SCALE } from './cityArt';
 import { CITY_DROP, CITY_WORLD } from './terrain';
 import { buildingIconName, itemName } from '../data';
 import { tintedIcon } from '../icons';
@@ -12,12 +12,12 @@ import { ATLAS } from './style';
 import { ring } from './combatFxDraw';
 import { FONTS } from './sprites';
 import { landmarkBox, type LandmarkBox } from './landmarks';
-import { drawSite, drawWallsSite, stageImage } from './constructionFx';
+import { drawSite, stageImage } from './constructionFx';
 import { constructionStage, type ConstructionSite } from './constructionSites';
 import { rnd, type Pt } from './combatFx';
 import { resourceArtUrl } from '../icons';
 import { medallionSlots } from './resourceIcons';
-import { CONSTRUCTION_ANIMATION, FOUND, GLINT_MS, LINGER, GROW_MS, IMPROVE_MS, RESOURCE_REVEAL_MS, ROAD_MS, SEAL_MS, TILE_MS, buildPhases, worldOf, type FxBuild, type FxFound, type FxGlint, type FxGrow, type FxSeal, type FxTile, type MomentPlan } from './momentFx';
+import { CONSTRUCTION_ANIMATION, FOUND, GLINT_MS, WALLS_MS, LINGER, GROW_MS, IMPROVE_MS, RESOURCE_REVEAL_MS, ROAD_MS, SEAL_MS, TILE_MS, buildPhases, worldOf, type FxBuild, type FxFound, type FxGlint, type FxGrow, type FxSeal, type FxTile, type FxWalls, type MomentPlan } from './momentFx';
 
 const INK = ATLAS.tone.ink;
 const VELLUM = ATLAS.tone.vellum;
@@ -42,8 +42,8 @@ export interface MomentView {
   /** Where a city's world wonder stands as a landmark (landmarks.ts), once built. */
   landmarkAt(city: number, building: string): Pt | null;
   landmarkBoxes?: ReadonlyMap<number, LandmarkBox>;
-  /** A city's population now, and its owner. */
-  city(id: number): { population: number; owner: number } | null;
+  /** A city's population now, its owner, and the wall ring it stands in (a `cityArt` stem: finished Walls or footings), if any. */
+  city(id: number): { population: number; owner: number; ring?: string | null } | null;
 }
 
 const clamp01 = (k: number) => Math.max(0, Math.min(1, k));
@@ -145,7 +145,7 @@ function blots(x: number, y: number, w: number, h: number, seed: number, k: numb
 }
 
 /** A sprite sketched in, then painted: the engraving laid down by `kInk`, the colour flooding in under it by `kWash`. */
-function sketch(ctx: CanvasRenderingContext2D, img: HTMLImageElement, key: string, x: number, y: number, w: number, h: number, seed: number, kInk: number, kWash: number, inkAlpha = 1) {
+function sketch(ctx: CanvasRenderingContext2D, img: HTMLImageElement | HTMLCanvasElement, key: string, x: number, y: number, w: number, h: number, seed: number, kInk: number, kWash: number, inkAlpha = 1) {
   const ink = inkOf(img, key);
   const origin = { x: 0.5, y: 0.82 };
   if (kWash > 0) {
@@ -170,10 +170,10 @@ function sketch(ctx: CanvasRenderingContext2D, img: HTMLImageElement, key: strin
   ctx.restore();
 }
 
-/** Where the terrain cache draws a town's sprite on screen (cityArt geometry), for a hex centre on screen. */
-function townBox(c: Pt, zoom: number) {
+/** Where the terrain cache draws a town's sprite on screen (cityArt geometry), for a hex centre on screen; `scale` shrinks it about its ground centre (a walled town). */
+function townBox(c: Pt, zoom: number, scale = 1) {
   const k = CITY_WORLD / CITY_CANVAS;
-  return { x: c.x - (CITY_GROUND.x0 + CITY_GROUND.x1) / 2 * k * zoom, y: c.y + (-CITY_GROUND.middle * k + CITY_DROP) * zoom, s: CITY_WORLD * zoom };
+  return { x: c.x - (CITY_GROUND.x0 + CITY_GROUND.x1) / 2 * k * zoom * scale, y: c.y + (-CITY_GROUND.middle * k * scale + CITY_DROP) * zoom, s: CITY_WORLD * zoom * scale };
 }
 
 function townSprite(era: number, pop: number, far: boolean, px: number): { img: HTMLImageElement; key: string } | null {
@@ -255,10 +255,8 @@ function drawBuild(ctx: CanvasRenderingContext2D, b: FxBuild, t: number, v: Mome
   const site: ConstructionSite = { city: b.city, owner: b.owner, tile: b.tile, hex: b.at,
     building: b.item.kind === 'Building' || b.item.kind === 'Wonder' ? b.item.building : 'Walls',
     era: v.eraOf(b.owner), k, stage: constructionStage(k), seed: b.seed, walls: b.walls };
-  if (b.walls) {
-    drawWallsSite(ctx, site, centre, v.zoom, v.dpr, k, v.factionOf(b.owner));
-    return;
-  }
+  // Walls footings are the town's own art: the terrain cache draws them, behind and in front of the town.
+  if (b.walls) return;
   const box = v.landmarkBoxes?.get(b.tile) ?? landmarkBox(centre, v.hexPx);
   const crossed = constructionStage(b.from) !== constructionStage(b.to);
   if (!crossed) drawSite(ctx, site, box, k, v.factionOf(b.owner));
@@ -289,13 +287,18 @@ function drawGrow(ctx: CanvasRenderingContext2D, g: FxGrow, t: number, v: Moment
   const city = v.city(g.city);
   if (!city) return;
   const c = v.toScreen(worldOf(g.at));
-  const box = townBox(c, v.zoom);
-  const sprite = townSprite(v.eraOf(city.owner), city.population, v.far, box.s * v.dpr);
+  // A walled town grows inside its ring, as the terrain cache draws it, with the near wall kept in front.
+  const ring = !v.far && city.ring ? cityImage(city.ring, spriteSize(townBox(c, v.zoom).s * v.dpr)) : null;
+  const sprite = townSprite(v.eraOf(city.owner), city.population, v.far, townBox(c, v.zoom).s * v.dpr);
   if (!sprite) return;
+  // Clipped to the ring's court like the cached town (`walledTown`, drawn in the ring's full frame); unclipped and scaled until the ring loads.
+  const fitted = ring ? walledTown(sprite.img, ring) : null;
+  const box = townBox(c, v.zoom, city.ring && !v.far && !fitted ? WALLED_TOWN_SCALE : 1);
   const k = Math.min(1, dt / GROW_MS);
   const s = 0.96 + 0.04 * easeOut(clamp01(k / 0.7));
   const bw = box.s * s, bx = c.x - (c.x - box.x) * s, by = box.y + box.s * (1 - s) * 0.85;
-  sketch(ctx, sprite.img, sprite.key, bx, by, bw, bw, g.seed, clamp01(k / 0.55), clamp01((k - 0.25) / 0.7));
+  sketch(ctx, fitted ?? sprite.img, fitted ? `${sprite.key}|${city.ring}` : sprite.key, bx, by, bw, bw, g.seed, clamp01(k / 0.55), clamp01((k - 0.25) / 0.7));
+  if (ring) { const r = townBox(c, v.zoom); drawCityCanvas(ctx, ring, r.x, r.y, r.s, 'front'); }
 }
 
 const WAX = '#8f2a1c';
@@ -392,6 +395,82 @@ function drawGlint(ctx: CanvasRenderingContext2D, g: FxGlint, t: number, v: Mome
   ctx.restore();
 }
 
+/** A warm gilt light, laid on in soft light: near-white screened over pale stone washed the masonry out flat (UI and art review, PR 205). */
+const WALL_LIGHT = '#ffe0a0';
+const lit = new Map<string, HTMLCanvasElement | null>();
+/**
+ * The stones of a wall ring as one flat light colour, in the ring's own frame: the whole front half, and the back half
+ * only where the town does not stand in front of it (`walledTown`), so the light never runs over the houses. Made once per
+ * ring, town and size.
+ */
+function litRing(ring: HTMLImageElement, town: HTMLImageElement | null): HTMLCanvasElement | null {
+  const key = `${ring.src}|${town?.src ?? ''}|${ring.naturalWidth}`;
+  if (lit.has(key)) return lit.get(key)!;
+  let out: HTMLCanvasElement | null = null;
+  try {
+    const n = ring.naturalWidth;
+    const c = document.createElement('canvas');
+    c.width = c.height = n;
+    const g = c.getContext('2d');
+    if (g && n) {
+      g.drawImage(ring, 0, 0);
+      const fitted = town ? walledTown(town, ring) : null;
+      if (fitted) {
+        const cut = Math.round(n * WALL_CUT / CITY_CANVAS);
+        g.save(); g.beginPath(); g.rect(0, 0, n, cut); g.clip();
+        g.globalCompositeOperation = 'destination-out';
+        g.drawImage(fitted, 0, 0);
+        g.restore();
+      }
+      g.globalCompositeOperation = 'source-in';
+      g.fillStyle = WALL_LIGHT;
+      g.fillRect(0, 0, n, n);
+      out = c;
+    }
+  } catch { out = null; }
+  lit.set(key, out);
+  return out;
+}
+
+/**
+ * Walls finished or raised a level: one band of warm light runs along the new ring, left to right, and is gone (the same
+ * restrained glint a promoted unit gets; no sketch-in, no pop). Drawn on the town, under the units and banners.
+ */
+function drawWalls(ctx: CanvasRenderingContext2D, x: FxWalls, t: number, v: MomentView) {
+  const dt = t - x.t;
+  if (dt < 0 || dt > WALLS_MS || v.far) return;
+  const city = v.city(x.city);
+  if (!city?.ring) return;
+  const box = townBox(v.toScreen(worldOf(x.at)), v.zoom);
+  const ring = cityImage(city.ring, spriteSize(box.s * v.dpr));
+  if (!ring) return;
+  const town = townSprite(v.eraOf(city.owner), city.population, false, box.s * v.dpr)?.img ?? null;
+  const light = litRing(ring, town);
+  if (!light) return;
+  const k = dt / WALLS_MS;
+  // The ring spans about 3% to 97% of its box: the band's middle travels that span, so the light is on the stones throughout.
+  const s = box.s, band = s * 0.2;
+  const mid = box.x + s * (0.03 + 0.94 * easeInOut(k));
+  // Zoomed out the ring is small and the band thin: a little stronger there so it still reads as a payoff.
+  const envelope = Math.sin(Math.PI * k) * (v.zoom < 1 ? 1.3 : 1);
+  ctx.save();
+  // Soft light: the stones warm and brighten but keep their masonry (screened, pale stone went flat cream); three nested
+  // widths give the band a soft edge.
+  ctx.globalCompositeOperation = 'soft-light';
+  for (const [wide, alpha] of [[1, 0.5], [0.6, 0.7], [0.28, 0.9]] as const) {
+    const half = band * wide / 2, lean = band * 0.5;
+    ctx.save();
+    ctx.beginPath();
+    ctx.moveTo(mid - half + lean, box.y); ctx.lineTo(mid + half + lean, box.y);
+    ctx.lineTo(mid + half - lean, box.y + s); ctx.lineTo(mid - half - lean, box.y + s); ctx.closePath();
+    ctx.clip();
+    ctx.globalAlpha = Math.min(1, alpha * envelope);
+    ctx.drawImage(light, box.x, box.y, s, s);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
 /** Under the units and banners: towns and walls being drawn, towns growing, land changing colour. */
 export function drawMomentGround(ctx: CanvasRenderingContext2D, plan: MomentPlan, t: number, v: MomentView) {
   ctx.save();
@@ -399,6 +478,7 @@ export function drawMomentGround(ctx: CanvasRenderingContext2D, plan: MomentPlan
   ctx.imageSmoothingEnabled = true;
   ctx.imageSmoothingQuality = 'high';
   for (const x of plan.tiles) drawTile(ctx, x, t, v);
+  for (const x of plan.walls) drawWalls(ctx, x, t, v);
   if (CONSTRUCTION_ANIMATION) {
     for (const f of plan.founds) drawFound(ctx, f, t, v);
     for (const g of plan.grows) drawGrow(ctx, g, t, v);

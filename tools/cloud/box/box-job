@@ -45,6 +45,13 @@ cmd_start() {
   echo started
 }
 
+cmd_retry() { # A completed drain refusal may be retried under the same job ID.
+  local id="$1" dir="$JOBS/$1"
+  [ "$(cat "$dir/rc" 2>/dev/null)" = 96 ] || { echo "job $id is not retryable" >&2; return 2; }
+  rm -f "$dir/rc"
+  cmd_start "$id"
+}
+
 cmd_follow() {
   local id="$1" off="${2:-0}" dir="$JOBS/$1" log size quiet=0
   log="$dir/output.log"
@@ -99,7 +106,17 @@ cmd_run() {
   started="$(date +%s)"
   mkdir -p "$dir/timings" "$JOBS/running"
   exec >>"$dir/output.log" 2>&1
+  if [ -d /run/legatum-boxrunner ]; then
+    drain_locked=1
+    exec 6>/run/legatum-boxrunner/drain.lock
+    flock 6
+    if [ -e /run/legatum-boxrunner/draining ]; then
+      flock -u 6; exec 6>&-
+      echo "box draining" >&2; exit 96
+    fi
+  fi
   echo $$ > "$JOBS/running/$id.pid"
+  if [ "${drain_locked:-0}" = 1 ]; then flock -u 6; exec 6>&-; fi
   finish() {
     local code=$?
     if [ ! -f "$dir/rc" ]; then echo "$code" > "$dir/rc.tmp" && mv -f "$dir/rc.tmp" "$dir/rc"; fi
@@ -313,6 +330,7 @@ sub="${1:-}"; [ $# -eq 0 ] || shift
 case "$sub" in
   known) cmd_known ;;
   start) cmd_start "$@" ;;
+  retry) cmd_retry "$@" ;;
   follow) cmd_follow "$@" ;;
   run) cmd_run "$@" ;;
   list) toolchain_env; cmd_list "$@" ;;

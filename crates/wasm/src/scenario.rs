@@ -1,6 +1,5 @@
-//! Scenario files (repo `scenarios/<id>.json`): a briefing, an objective, predictions and a
-//! compressed start state. Shared by the app (through WASM), the simulator baseline and the
-//! scenario builder, so all three load, prepare and score a scenario identically.
+//! Scenario files are AI measurement positions with an objective, predictions and a
+//! compressed start state. The simulator and scenario builder share this format.
 //!
 //! Format, version 1:
 //! `{"format":"legatum-scenario","version":1,"id":..,"revision":..,"title":..,"faction":..,
@@ -19,7 +18,6 @@ use std::io::{Read, Write};
 
 pub const FORMAT: &str = "legatum-scenario";
 pub const VERSION: u32 = 1;
-pub const RUN_FORMAT: &str = "legatum-scenario-run";
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ScorePrediction {
@@ -32,14 +30,14 @@ pub struct ScorePrediction {
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Predictions {
-    /// What good play looks like, written before the human plays.
+    /// What good play looks like, recorded before measuring the AI.
     pub good_play: String,
     /// What the Hard AI is expected to do from this position.
     pub ai_play: String,
     pub ai_score: ScorePrediction,
 }
 
-/// The measured AI baseline (`legatum-sim scenario --record`), shown on the result screen.
+/// The measured AI baseline (`legatum-sim scenario --record`).
 /// Cleared whenever the scenario's state or objective changes.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct Baseline {
@@ -54,36 +52,6 @@ pub struct Baseline {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub median_turns: Option<u32>,
     pub measured_at: String,
-}
-
-/// The Scenario Lab card (title screen, Scenarios): what the scenario asks a human, in words
-/// a player reads. A scenario file with a card is listed in the app; one without is for the
-/// simulator only.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct LabCard {
-    /// The question the scenario answers, in plain words ("Can you hold two walled cities...?").
-    pub question: String,
-    /// Two plain lines setting the scene, shown on the card.
-    pub blurb: String,
-    /// What the human is asked to comment on in the feedback box when it differs from the
-    /// question (optional).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub ask: Option<String>,
-    /// The seat's era when the scenario starts (0 is Ancient), for the card's painting.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub era: Option<u8>,
-    /// A change the scenario waits for ("walls halve siege damage"). While it is set the scenario is
-    /// built and measured but not listed in the app; delete the field when the change lands.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub requires: Option<String>,
-    /// Who the opponent is, when it is not the normal Hard AI ("Sparta rushes on a script"). Shown
-    /// on the briefing.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub opponent: Option<String>,
-    /// Position in the list; lower first (cards without one follow by title).
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub order: Option<u32>,
 }
 
 /// What the human player achieved from this start state in the recorded game. War scenarios
@@ -156,15 +124,15 @@ pub struct ScenarioFile {
     pub format: String,
     pub version: u32,
     pub id: String,
-    /// Bumped whenever the state or objective changes, so old runs are not compared with new ones.
+    /// Bumped whenever the state or objective changes, so measurements remain comparable.
     pub revision: u32,
     pub title: String,
     pub faction: Faction,
-    /// The player the human (or the baseline AI) controls.
+    /// The seat whose AI is measured.
     pub seat: PlayerId,
     /// Difficulty of every other empire.
     pub difficulty: AiDifficulty,
-    /// Expected minutes for a human to play it.
+    /// Required by the version-1 format; new cuts set it to zero.
     pub minutes: u32,
     pub briefing: String,
     /// What the scenario tests, for the comparison report.
@@ -180,9 +148,6 @@ pub struct ScenarioFile {
     /// The human player's own result from this position (war scenarios only).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub human: Option<HumanResult>,
-    /// The Scenario Lab card; absent for scenarios only the simulator runs.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub lab: Option<LabCard>,
     /// An AI empire that rushes on a script instead of the Hard AI's own play.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rusher: Option<Rusher>,
@@ -274,10 +239,9 @@ impl ScenarioFile {
         decode_state(&self.state)
     }
 
-    /// The playable start state: `seat` is the only human (or nobody, for an all-AI baseline),
-    /// every other empire plays at the scenario difficulty, and the position and objective are
-    /// checked against the rules.
-    pub fn prepare(&self, human: bool) -> Result<GameState, String> {
+    /// The AI measurement start state: no human seat, rivals at the recorded difficulty,
+    /// and the position and objective checked against the rules.
+    pub fn prepare(&self) -> Result<GameState, String> {
         let mut state = self.stored_state()?;
         if (self.seat.0 as usize) >= state.players.len() {
             return Err(format!("seat {} is not a player", self.seat.0));
@@ -300,13 +264,13 @@ impl ScenarioFile {
         }
         for (i, setup) in state.setup.players.iter_mut().enumerate() {
             let me = PlayerId(i as u8) == self.seat;
-            setup.is_human = me && human;
+            setup.is_human = false;
             if !me {
                 setup.difficulty = self.difficulty;
             }
         }
         for p in &mut state.players {
-            p.is_human = p.id == self.seat && human;
+            p.is_human = false;
         }
         let mut errors = scenario::validate_state(&state);
         errors.extend(scenario::check_objective(
@@ -335,15 +299,11 @@ pub struct Checked {
     pub title: String,
 }
 
-/// Everything a scenario file must satisfy before the Lab can offer it, in plain words when it
-/// does not: the format, the rules version the state was made for, and that
+/// Everything a scenario position must satisfy: the format, rules version and
 /// the state loads (hash), is legal and has an objective that parses. The `Err` is a plain
 /// reason, never a panic. Used by `legatum-sim scenario-check`.
 pub fn check_file(text: &str) -> Result<Checked, String> {
     let file = ScenarioFile::parse(text)?;
-    if file.lab.is_none() {
-        return Err("has no Lab card (question and blurb), so the Lab cannot list it".into());
-    }
     let json = state_json(&file.state)?;
     let version = serde_json::from_str::<serde_json::Value>(&json)
         .map_err(|e| format!("scenario state is not valid JSON: {e}"))?
@@ -356,7 +316,7 @@ pub fn check_file(text: &str) -> Result<Checked, String> {
             None => format!("has no rules version; this app is {current}"),
         });
     }
-    file.prepare(true)?;
+    file.prepare()?;
     Ok(Checked {
         id: file.id.clone(),
         title: file.title.clone(),
@@ -439,31 +399,16 @@ mod tests {
             source: "new_game(all_ai(5))".into(),
             baseline: None,
             human: None,
-            lab: None,
             rusher: None,
             ai_memory: None,
             state: encode_state(state),
         }
     }
 
-    fn carded(state: &GameState) -> ScenarioFile {
-        let mut file = sample(state);
-        file.lab = Some(LabCard {
-            question: "Can you found a city?".into(),
-            blurb: "Two lines.".into(),
-            ask: None,
-            era: None,
-            requires: None,
-            opponent: None,
-            order: None,
-        });
-        file
-    }
-
     #[test]
-    fn check_file_names_why_a_dropped_in_file_cannot_be_used() {
+    fn check_file_validates_position_and_version() {
         let state = new_game(&GameSetup::all_ai(5));
-        let good = carded(&state);
+        let good = sample(&state);
         let checked = check_file(&serde_json::to_string(&good).unwrap()).unwrap();
         assert_eq!(
             (checked.id.as_str(), checked.title.as_str()),
@@ -491,7 +436,7 @@ mod tests {
             )
         );
 
-        // A tampered state, a missing card and a wrong format are refused, never panics.
+        // A tampered state and a wrong format are refused, never panics.
         let mut tampered = good.clone();
         tampered.state.hash = "1".into();
         assert!(
@@ -499,56 +444,14 @@ mod tests {
                 .unwrap_err()
                 .contains("hash")
         );
-        assert!(
-            check_file(&serde_json::to_string(&sample(&state)).unwrap())
-                .unwrap_err()
-                .contains("Lab card")
-        );
         let mut other: serde_json::Value = serde_json::to_value(&good).unwrap();
-        other["format"] = "legatum-scenario-run".into();
+        other["format"] = "not-a-scenario".into();
         assert!(
             check_file(&other.to_string())
                 .unwrap_err()
                 .contains("not a scenario file")
         );
         assert!(check_file("{").unwrap_err().contains("invalid scenario"));
-    }
-
-    #[test]
-    fn a_lab_card_and_a_baseline_with_turns_round_trip() {
-        let state = new_game(&GameSetup::all_ai(5));
-        let mut file = sample(&state);
-        file.lab = Some(LabCard {
-            question: "Can you hold?".into(),
-            blurb: "Two lines.".into(),
-            ask: None,
-            era: Some(2),
-            requires: None,
-            opponent: Some("Scripted.".into()),
-            order: Some(3),
-        });
-        file.baseline = Some(Baseline {
-            runs: 8,
-            difficulty: AiDifficulty::Hard,
-            median: 100,
-            p10: 90,
-            p90: 110,
-            win_percent: Some(75),
-            median_turns: Some(4),
-            measured_at: "t".into(),
-        });
-        let json = serde_json::to_string(&file).unwrap();
-        assert!(!json.contains("\"ask\""), "an absent ask is not written");
-        assert_eq!(ScenarioFile::parse(&json).unwrap(), file);
-        // A file without a card or a turns median (every older scenario) still loads.
-        let mut plain = serde_json::to_value(sample(&state)).unwrap();
-        plain.as_object_mut().unwrap().remove("lab");
-        assert!(
-            ScenarioFile::parse(&plain.to_string())
-                .unwrap()
-                .lab
-                .is_none()
-        );
     }
 
     #[test]
@@ -570,16 +473,16 @@ mod tests {
     }
 
     #[test]
-    fn prepare_makes_the_seat_the_only_human_and_sets_difficulty() {
+    fn prepare_makes_every_seat_ai_and_sets_difficulty() {
         let mut setup = GameSetup::all_ai(5);
         setup.players[0].is_human = true;
         let state = new_game(&setup);
         let file = sample(&state);
         let json = serde_json::to_string(&file).unwrap();
         let file = ScenarioFile::parse(&json).unwrap();
-        let prepared = file.prepare(true).unwrap();
+        let prepared = file.prepare().unwrap();
         for p in &prepared.players {
-            assert_eq!(p.is_human, p.id == PlayerId(2));
+            assert!(!p.is_human);
             assert_eq!(prepared.setup.players[p.id.0 as usize].is_human, p.is_human);
             if p.id != PlayerId(2) {
                 assert_eq!(
@@ -588,8 +491,6 @@ mod tests {
                 );
             }
         }
-        let baseline = file.prepare(false).unwrap();
-        assert!(baseline.players.iter().all(|p| !p.is_human));
         let active = ActiveScenario::new(file, prepared.clone());
         let status = active.status(&prepared);
         assert_eq!((status.outcome, status.turns_left), (Outcome::Playing, 5));
@@ -604,10 +505,10 @@ mod tests {
         } else {
             Faction::India
         };
-        assert!(file.prepare(true).unwrap_err().contains("plays"));
+        assert!(file.prepare().unwrap_err().contains("plays"));
         let mut file = sample(&state);
         file.objective.win = vec![Condition::OwnCity(legatum_core::CityId(40))];
-        assert!(file.prepare(true).unwrap_err().contains("not legal"));
+        assert!(file.prepare().unwrap_err().contains("not legal"));
         let mut v = serde_json::to_value(sample(&state)).unwrap();
         v["version"] = 9.into();
         assert!(
@@ -629,7 +530,7 @@ mod target_tests {
     fn targets(id: &str) -> (ScenarioFile, Vec<Target>) {
         let path = format!("{}/../../scenarios/{id}.json", env!("CARGO_MANIFEST_DIR"));
         let file = ScenarioFile::parse(&std::fs::read_to_string(path).unwrap()).unwrap();
-        let start = file.prepare(true).unwrap();
+        let start = file.prepare().unwrap();
         let t = objective_targets(&file.objective, file.seat, &start, &start);
         (file, t)
     }
@@ -666,17 +567,5 @@ mod target_tests {
         // Three Fires by Fifty points at no city.
         let (_, t) = targets("opening-race");
         assert!(t.is_empty(), "{t:?}");
-    }
-
-    #[test]
-    fn briefing_targets_come_from_the_start_state() {
-        let path = format!(
-            "{}/../../scenarios/rush-offense.json",
-            env!("CARGO_MANIFEST_DIR")
-        );
-        let json = std::fs::read_to_string(path).unwrap();
-        let out: Vec<Target> =
-            serde_json::from_str(&crate::scenario_targets_json(&json).unwrap()).unwrap();
-        assert!(out.iter().any(|t| t.name == "Last Bridge"));
     }
 }

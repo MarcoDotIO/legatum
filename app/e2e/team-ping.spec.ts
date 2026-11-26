@@ -1,52 +1,73 @@
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { listedGameName } from './listedName';
 
-// Team pings in a hot seat game: the Ping control shows with a human teammate, a click on the map pings that
-// tile, and the teammate sees the ring (and a way to it) when they take the device.
+// Team pings in an online game: the Ping control shows with a human teammate, a click on the map pings that
+// tile, and the teammate's browser shows the ring with a way to it. Hot seat is gone (2026-11-23), so the host
+// and guest are two browser contexts joined through the real relay under wrangler dev.
 const SHOTS = process.env.LEGATUM_SHOTS;
 
-async function startHotSeat(page: Page) {
-  await page.goto('/?client=wasm');
-  await page.getByRole('button', { name: /^Multiplayer/ }).click();
-  await page.getByRole('button', { name: /^Hot Seat/ }).click();
-  const small = page.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: /^Small/ });
+async function startOnline(host: Page, guest: Page) {
+  await host.goto('/?client=wasm');
+  await host.getByRole('button', { name: /^Multiplayer/ }).click();
+  await host.getByLabel('Your name', { exact: true }).fill('Ada');
+  await host.getByRole('button', { name: /^Host Game/ }).click();
+  await expect(host.getByRole('heading', { name: 'Game room', exact: true })).toBeVisible();
+  const small = host.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: /^Small/ });
   await small.click();
   await expect(small).toBeChecked();
-  await page.getByLabel('Map seed', { exact: true }).fill('9001');
-  await page.getByRole('button', { name: /^Start game/ }).click();
-  await expect(page.getByTestId('turn-number')).toHaveText('1');
-  const gotIt = page.getByRole('button', { name: 'Got it', exact: true });
-  if (await gotIt.count()) await gotIt.click();
+  await host.getByLabel('Map seed', { exact: true }).fill('9001');
+
+  await guest.goto('/?client=wasm');
+  await guest.getByRole('button', { name: /^Multiplayer/ }).click();
+  await guest.getByRole('button', { name: /^Join Game/ }).click();
+  const row = guest.locator('.online-room').filter({ hasText: await listedGameName(host) });
+  await expect(row).toHaveCount(1, { timeout: 20_000 });
+  await row.getByRole('button', { name: /^Join/ }).click();
+  await guest.getByRole('row').nth(2).getByRole('button', { name: 'Take seat', exact: true }).click();
+  await guest.getByLabel('Your name', { exact: true }).fill('Alice');
+  await guest.getByRole('button', { name: /^Ready Lock/ }).click();
+
+  const start = host.getByRole('button', { name: /^Start game/ });
+  await expect(start).toBeEnabled();
+  await start.click();
+  for (const page of [host, guest]) {
+    await expect(page.getByTestId('turn-number')).toHaveText('1');
+    const gotIt = page.getByRole('button', { name: 'Got it', exact: true });
+    if (await gotIt.count()) await gotIt.click();
+  }
 }
 
 const pingCount = (page: Page) => page.evaluate(() => (window as unknown as { legatum: { getState(): { pings: unknown[] } } }).legatum.getState().pings.length);
 
 for (const [w, h] of [[1000, 600], [1440, 900]]) {
-  test(`a ping reaches the teammate who takes the device at ${w}x${h}`, async ({ page }) => {
-    await page.setViewportSize({ width: w, height: h });
-    await startHotSeat(page);
-    const control = page.getByTestId('ping-control');
+  test(`a ping reaches the teammate's browser at ${w}x${h}`, async ({ page: host, guestPage: guest, relay: _relay }) => {
+    test.setTimeout(150_000);
+    await host.setViewportSize({ width: w, height: h });
+    await guest.setViewportSize({ width: w, height: h });
+    await startOnline(host, guest);
+
+    const control = host.getByTestId('ping-control');
     await expect(control).toBeInViewport({ ratio: 1 });
-    const button = page.getByTestId('ping-button');
+    const button = host.getByTestId('ping-button');
     await expect(button).toHaveText(/^Ping\s*P$/);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/ping-control-${w}x${h}.png` });
+    if (SHOTS) await host.screenshot({ path: `${SHOTS}/ping-control-${w}x${h}.png` });
     await button.click();
     await expect(button).toHaveText(/^Cancel ping\s*Esc$/);
-    await expect(page.getByTestId('ping-hint')).toHaveText('Click a tile to ping it');
+    await expect(host.getByTestId('ping-hint')).toHaveText('Click a tile to ping it');
     await expect(button).toHaveAttribute('aria-pressed', 'true');
     // Click the map a little off centre: the tile there is the ping.
-    const map = page.locator('[data-game-map]');
+    const map = host.locator('[data-game-map]');
     const box = (await map.boundingBox())!;
-    await page.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.5);
+    await host.mouse.click(box.x + box.width * 0.45, box.y + box.height * 0.5);
     await expect(button).toHaveText(/^Ping\s*P$/);
-    expect(await pingCount(page)).toBe(1);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/ping-live-${w}x${h}.png` });
-    // The teammate takes the device: the ring and a way to it are there.
-    await page.keyboard.press('2');
-    await expect(page.getByTestId('ping-go')).toHaveText(/pinged · Go to ping$/);
-    await expect(page.getByTestId('ping-go')).toBeInViewport({ ratio: 1 });
-    await page.waitForTimeout(700);
-    if (SHOTS) await page.screenshot({ path: `${SHOTS}/ping-teammate-${w}x${h}.png` });
+    expect(await pingCount(host)).toBe(1);
+    if (SHOTS) await host.screenshot({ path: `${SHOTS}/ping-live-${w}x${h}.png` });
+
+    // The teammate's browser shows who pinged and a way to it.
+    await expect(guest.getByTestId('ping-go')).toHaveText(/Ada pinged · Go to ping$/, { timeout: 20_000 });
+    await expect(guest.getByTestId('ping-go')).toBeInViewport({ ratio: 1 });
+    if (SHOTS) await guest.screenshot({ path: `${SHOTS}/ping-teammate-${w}x${h}.png` });
   });
 }
 

@@ -1,18 +1,20 @@
+import { newestAutosave } from './autosave';
 import { revealSidebar } from './sidebarAssertions';
 import { dismissInterstitials, endPlanning } from './turnActions';
 import { chooseCapitalProduction } from './opening';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
+import { listedGameName } from './listedName';
 
 async function configureLobby(page: Page, seed: string) {
   const small = page.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: /^Small/ });
   await small.click();
   await expect(small).toBeChecked();
   // Choosing Small trims to four empires, which keeps the real AI/WASM turns quick.
-  const hard = page.getByRole('radiogroup', { name: 'AI level (all AI empires)', exact: true }).getByRole('radio', { name: /^Hard Ruthless/ });
+  const hard = page.getByRole('radiogroup', { name: 'AI level', exact: true }).getByRole('radio', { name: /^Hard Ruthless/ });
   await hard.click();
   await expect(hard).toBeChecked();
-  for (const level of await page.getByRole('combobox', { name: /^Seat \d+ AI level$/ }).all()) await expect(level).toHaveValue('Hard');
+  await expect(page.getByRole('combobox', { name: /^Seat \d+ AI level$/ })).toHaveCount(0);
   await page.getByLabel('Map seed', { exact: true }).fill(seed);
 }
 
@@ -46,12 +48,12 @@ async function skipCelebrations(page: Page) {
 }
 
 function turnReport(page: Page) {
-  return page.getByRole('complementary').filter({ has: page.getByRole('heading', { name: 'What happened', exact: true }) });
+  return page.getByRole('complementary').filter({ has: page.getByRole('heading', { name: 'Turn report', exact: true }) });
 }
 
 async function autosave(page: Page): Promise<{ client: string; turn: number; game: string; savedAt: string }> {
   // Read the actual persisted artifact; never seed or drive the game via its store.
-  return page.evaluate(() => JSON.parse(localStorage.getItem('legatum.autosave.v1') ?? 'null'));
+  return (await newestAutosave(page))!;
 }
 
 test('Single Player: choose capital production and play six turns with VP visible', async ({ page }) => {
@@ -80,7 +82,7 @@ test('Single Player: choose capital production and play six turns with VP visibl
   for (let turn = 3; turn <= 7; turn++) {
     await endTurn(page, turn);
     await expect(vp).toBeVisible();
-    await expect(vp.locator('.race-headline')).toBeVisible();
+    await expect(vp.locator('.rivals .rv-row.mine')).toBeVisible();
     await expect(vp).toContainText('/10');
     if (turn === 3) await expect(page.getByRole('button', { name: `Build ${first}`, exact: true })).toHaveAttribute('aria-pressed', 'true');
   }
@@ -113,7 +115,7 @@ test('Autosave: reload and Continue restore the same turn and exact game state',
   await page.reload();
   const resume = page.getByRole('button', { name: /^Continue/ });
   await expect(resume).toBeEnabled();
-  await expect(resume).toContainText('turn 3');
+  await expect(resume).toContainText('Turn 3');
   await resume.click();
   await expectTurn(page, before.turn);
 
@@ -127,56 +129,6 @@ test('Autosave: reload and Continue restore the same turn and exact game state',
   expect(await autosave(page)).toMatchObject({ client: 'wasm', turn: 4 });
 });
 
-test('Hot Seat: both humans plan before the shared turn resolves', async ({ page }) => {
-  await page.goto('/?client=wasm');
-  await page.getByRole('button', { name: /^Multiplayer/ }).click();
-  await page.getByRole('button', { name: /^Hot Seat/ }).click();
-  await expect(page.getByRole('heading', { name: 'Hot Seat', exact: true })).toBeVisible();
-  await configureLobby(page, '9001');
-  await expect(page.getByLabel('Seat 2 type', { exact: true })).toHaveValue('human');
-  await page.getByRole('button', { name: /^Start game/ }).click();
-  await expectTurn(page, 1);
-
-  // Each local seat has a selection button (faction crest text, the player's name, then the
-  // order count) and a separate Ready toggle named "<player>: ready".
-  await revealSidebar(page, 'turn-more');
-  const firstSeat = page.getByRole('button', { name: /\bPlayer 1 \d+ orders?$/ });
-  const secondSeat = page.getByRole('button', { name: /\bPlayer 2 \d+ orders?$/ });
-  const firstReady = page.getByRole('button', { name: 'Player 1: ready', exact: true });
-  const secondReady = page.getByRole('button', { name: 'Player 2: ready', exact: true });
-  await expect(firstSeat).toHaveAttribute('aria-pressed', 'true');
-  await expect(secondSeat).toHaveAttribute('aria-pressed', 'false');
-  await chooseCapitalProduction(page);
-  await endPlanning(page);
-  // Hot seat privacy: Player 2's empire stays covered until Player 2 takes the device.
-  const pass = page.getByRole('dialog', { name: 'Pass to Player 2' });
-  await expect(pass).toBeVisible();
-  await expect(pass.getByRole('button', { name: "I'm Player 2: start planning" })).toBeFocused();
-  await page.keyboard.press('Enter');
-  await expect(pass).toHaveCount(0);
-  await expect(secondSeat).toHaveAttribute('aria-pressed', 'true');
-  await expect(firstSeat).toHaveAttribute('aria-pressed', 'false');
-  await expect(firstSeat).toContainText('1 order');
-  await expect(firstReady).toHaveAttribute('aria-pressed', 'true');
-  await expect(firstReady).toHaveText('Ready');
-  await expect(secondReady).toHaveAttribute('aria-pressed', 'false');
-  await expectTurn(page, 1);
-
-  await chooseCapitalProduction(page);
-  await expect(secondSeat).toContainText('1 order');
-  await endTurn(page, 2);
-  await skipCelebrations(page);
-  // Both capital production orders resolved in the same shared turn.
-  expect(await page.evaluate(() => {
-    const s = (window as unknown as { legatum: typeof import('../src/store').useGame }).legatum.getState();
-    return s.views?.slice(0, 2).map((v) => v.cities.find((c) => c.owner === v.me)?.detail?.producing ?? null);
-  })).toEqual([expect.any(Object), expect.any(Object)]);
-  for (const ready of [firstReady, secondReady]) {
-    await expect(ready).toHaveAttribute('aria-pressed', 'false');
-    await expect(ready).toHaveText('Planning');
-  }
-});
-
 // Online co-op end to end: the host's tab runs the game (the WASM host) and reaches the guest's browser
 // through the real relay under wrangler dev. No game server anywhere.
 test('Online: host in one browser, a guest joins from the game list, both Ready reach turn 2', async ({ page: host, guestPage: guest, relay }) => {
@@ -185,11 +137,13 @@ test('Online: host in one browser, a guest joins from the game list, both Ready 
   host.on('websocket', (ws) => tunnel.push(ws.url()));
   await host.goto('/');
   await host.getByRole('button', { name: /^Multiplayer/ }).click();
-  await host.getByLabel('Your name in the game list').fill('Ada');
+  await host.getByLabel('Your name', { exact: true }).fill('Ada');
   await host.getByRole('button', { name: /^Host Game/ }).click();
-  await expect(host.getByRole('heading', { name: 'Host Game', exact: true })).toBeVisible();
-  // The host holds one tunnel to the relay, and plays its own seat inside the tab.
-  expect(tunnel.filter((u) => u.startsWith(relay.replace(/^http/, 'ws')))).toEqual([expect.stringMatching(/\/rooms\/[^/]+\/host\?key=/)]);
+  await expect(host.getByRole('heading', { name: 'Game room', exact: true })).toBeVisible();
+  // The host holds one tunnel to the relay, and plays its own seat inside the tab. The heading can show
+  // before the socket opens (a cold relay under wrangler dev), so wait for it rather than read it once.
+  await expect.poll(() => tunnel.filter((u) => u.startsWith(relay.replace(/^http/, 'ws'))))
+    .toEqual([expect.stringMatching(/\/rooms\/[^/]+\/host\?key=/)]);
   await configureLobby(host, '20240926');
   const start = host.getByRole('button', { name: /^Start game/ });
   // The room is open and synced, but the open online seat blocks the start.
@@ -199,10 +153,10 @@ test('Online: host in one browser, a guest joins from the game list, both Ready 
   await guest.goto('/');
   await guest.getByRole('button', { name: /^Multiplayer/ }).click();
   await guest.getByRole('button', { name: /^Join Game/ }).click();
-  const row = guest.locator('.online-room').filter({ hasText: 'Ada' });
+  const row = guest.locator('.online-room').filter({ hasText: await listedGameName(host) });
   await expect(row).toHaveCount(1, { timeout: 20_000 });
   await row.getByRole('button', { name: /^Join/ }).click();
-  await expect(guest.getByRole('heading', { name: 'Join Game', exact: true })).toBeVisible();
+  await expect(guest.getByRole('heading', { name: 'Game room', exact: true })).toBeVisible();
 
   // The guest sees the host's settings: Seat 2 is the one open seat.
   await expect(guest.getByLabel('Map seed', { exact: true })).toHaveValue('Hidden');
@@ -217,6 +171,28 @@ test('Online: host in one browser, a guest joins from the game list, both Ready 
   await expect(host.getByTestId('online-seat-1')).toContainText('Alice');
   await expect(host.getByTestId('online-seat-1')).toContainText('online');
   await expect(guest.getByTestId('online-seat-0')).toContainText('online');
+  expect(await host.evaluate(() => {
+    const s = (window as unknown as { legatum: typeof import('../src/store').useGame }).legatum.getState();
+    return s.views?.[s.seat]?.ai_alliances;
+  })).toBe(true);
+  expect(await guest.evaluate(() => {
+    const s = (window as unknown as { legatum: typeof import('../src/store').useGame }).legatum.getState();
+    return s.views?.[s.seat]?.ai_alliances;
+  })).toBe(true);
+
+  // Team pings travel through the host to the other browser.
+  expect(await host.evaluate(() => {
+    const s = (window as unknown as { legatum: typeof import('../src/store').useGame }).legatum.getState();
+    const v = s.views![s.seat];
+    return s.sendPing(v.cities.find((city) => city.owner === v.me)!.pos);
+  })).toBe(true);
+  await expect(guest.getByTestId('ping-go')).toContainText('Ada pinged');
+  expect(await guest.evaluate(() => {
+    const s = (window as unknown as { legatum: typeof import('../src/store').useGame }).legatum.getState();
+    const v = s.views![s.seat];
+    return s.sendPing(v.cities.find((city) => city.owner === v.me)!.pos);
+  })).toBe(true);
+  await expect(host.getByTestId('ping-go')).toContainText('Alice pinged');
 
   await chooseCapitalProduction(host);
   await chooseCapitalProduction(guest);

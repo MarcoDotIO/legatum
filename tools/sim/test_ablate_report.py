@@ -35,16 +35,10 @@ class RuleTable(unittest.TestCase):
         rows = ar.rule_table()
         names = [n for n, _, _ in rows]
         self.assertEqual(len(names), len(set(names)))
-        # Egypt and Rome had no faction goal when this fixture was recorded (they gained goals at rules 54).
-        no_goal = {"egypt", "rome"}
         for faction in ar.FACTION_NAMES:
             kinds = [k for n, f, k in rows if f == faction]
             self.assertTrue(kinds, faction)
-            if faction in no_goal:
-                self.assertNotIn(f"{faction}_goal", [n for n, f, _ in rows if f == faction])
-                continue
             self.assertIn(f"{faction}_goal" if faction != "switzerland" else "swiss_goal", [n for n, f, _ in rows if f == faction])
-            self.assertTrue(kinds, faction)
         self.assertEqual({k for _, _, k in rows}, {"strength", "drawback"})
 
     def test_germany_has_the_current_rules(self):

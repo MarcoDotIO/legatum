@@ -459,6 +459,8 @@ impl ScriptedBrain {
         p.update_roster();
         p.reconcile_campaign();
         p.choose_plan();
+        p.choose_rome_opening();
+        p.choose_rome_second_war();
         p.note_operation_took();
         p
     }
@@ -1152,6 +1154,10 @@ pub(crate) struct Planner<'a> {
     pub escort_sites: Vec<Hex>,
     /// Gene `roman_found_first`: the Roman veteran sent to found a city this turn.
     pub(crate) roman_founder: Option<UnitId>,
+    /// Gene `rome_found_now`: the Roman veterans founding or walking to their site this turn.
+    pub(crate) rome_founders_now: BTreeSet<UnitId>,
+    /// Gene `rome_recruit_captures`: lock cities a veteran stood aside from this turn.
+    pub(crate) rome_capture_aside: Vec<Hex>,
     /// Gene `rome_colonia`: the Roman veteran sent to found the Colonia Victrix this turn.
     pub(crate) colonia_founder: Option<UnitId>,
     /// Gene `rome_colonia`: cities the would-be founder stood aside from this turn
@@ -1346,6 +1352,8 @@ impl<'a> Planner<'a> {
             settle_targets: Vec::new(),
             escort_sites: Vec::new(),
             roman_founder: None,
+            rome_founders_now: BTreeSet::new(),
+            rome_capture_aside: Vec::new(),
             colonia_founder: None,
             colonia_aside: Vec::new(),
             gold_left: view.economy.gold,
@@ -1400,10 +1408,22 @@ impl<'a> Planner<'a> {
         self.acted.remove(&unit);
     }
 
+    /// Gene `rome_recruit_captures`: take back this turn's order for `unit` so it can be given
+    /// another (`rome_found_now.rs::rome_capture_guard`).
+    pub(crate) fn release_unit_order(&mut self, unit: UnitId) {
+        self.orders
+            .retain(|o| legatum_core::rules::units::order_unit(o) != Some(unit));
+        self.acted.remove(&unit);
+    }
+
     /// Issue a unit-action order, unless the unit already has one. Returns whether it was issued.
     pub fn unit_order(&mut self, unit: UnitId, order: Order) -> bool {
         if self.has_acted(unit) {
             return false;
+        }
+        // Gene `rome_recruit_captures`: a recruit, not a veteran, takes the occupation lock.
+        if let Some(placed) = self.rome_capture_guard(unit, &order) {
+            return placed;
         }
         // Rome's Colonia founder never walks into an occupation lock (`goal_colonia.rs`).
         if let Some(placed) = self.colonia_lock_guard(unit, &order) {

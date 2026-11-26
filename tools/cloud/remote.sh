@@ -74,6 +74,10 @@ finish_job() { # finish_job <id>: artifacts, timings, exit code. Uses meta.env s
   local raw="$jobres/output.raw" rc
   rc="$(sed -n 's/^__BOX_RC=//p' "$raw" | tail -1)"
   if [ -z "$rc" ]; then echo "box: job $id has no exit code yet (still running? box.sh jobs)" >&2; return 75; fi
+  if [ "$rc" = 96 ]; then
+    echo "box: job $id was deferred; retry limit reached, try again later" >&2
+    return "$BOX_UNAVAILABLE"
+  fi
   if [ "$rc" = 143 ] || [ "$rc" = 97 ]; then
     local state classified
     state="$(box_state)"
@@ -257,8 +261,30 @@ interrupted() {
 }
 trap interrupted INT TERM HUP
 
+# A drain refusal is an admission outcome, not a command failure.
+retry_drain() {
+  local attempt=0 delay rc
+  while :; do
+    follow "$id" || return $?
+    rc="$(sed -n 's/^__BOX_RC=//p' "$jobres/output.raw" | tail -1)"
+    [ "$rc" = 96 ] || return 0
+    attempt=$((attempt + 1))
+    if [ "$attempt" -gt 3 ]; then
+      echo "box: job $id deferred by drain after 3 retries; try again later" >&2
+      return "$BOX_UNAVAILABLE"
+    fi
+    delay=$((attempt * 5))
+    echo "box: job $id deferred by drain; retrying in ${delay}s ($attempt/3)" >&2
+    sleep "$delay"
+    # Keep the local stream aligned with the persistent remote output log.
+    sed '$d' "$jobres/output.raw" > "$jobres/output.tmp"
+    mv "$jobres/output.tmp" "$jobres/output.raw"
+    box_ssh_timed "$ssh_deadline" "/data/bin/box-job retry $id" >/dev/null || return "$BOX_UNAVAILABLE"
+  done
+}
+
 if budget_expired; then follow "$id" || true; finish_job "$id" || true; timeout_message; exit 124; fi
-follow "$id" &
+retry_drain &
 follow_pid=$!
 last_size=-1; last_change="$(date +%s)"
 while kill -0 "$follow_pid" 2>/dev/null; do

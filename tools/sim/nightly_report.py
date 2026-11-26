@@ -107,7 +107,7 @@ def draw_chart(rows, path):
     panel(160, "Hard census · best / worst faction", lambda r: r["census"]["best_worst_ratio"], blue, "×", 1, "Lower means factions are closer")
     panel(445, "Human seat · wins vs Hard", lambda r: r["human_seat"]["seat_win_share"], teal, direction="Higher means Hard plays the user's seat better")
     panel(730, "War suite · goals met", lambda r: r["war_suite"]["suite_success_percent"] / 100, gold, direction="Higher means more war objectives met")
-    panel(1015, "Scenario Lab · goals met", lambda r: r["scenario_lab"]["mean_win_percent"] / 100, blue, direction="Higher means more Scenario Lab objectives met")
+    panel(1015, "AI positions · goals met", lambda r: r["scenario_lab"]["mean_win_percent"] / 100, blue, direction="Higher means more AI position objectives met")
     panel(1300, "Combat lab · AI captures", lambda r: r["combat_lab"]["capture_percent"]["ai"] / 100, red, direction="Fixed 21-cell subset; higher means more captures")
     d.text((43, 1590), "Compare within a rules version. A new version starts a new baseline.", font=font(20), fill=muted)
     image.save(path)

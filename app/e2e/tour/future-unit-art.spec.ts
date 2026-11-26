@@ -92,8 +92,7 @@ for (const size of SIZES) test.describe(`future unit art ${size.name}`, () => {
       const store = (window as unknown as GameWindow).legatum, st = store.getState();
       store.setState({ views: st.views!.map((x, i) => (i === st.seat ? view : x)) });
     }, staged);
-    const nav = page.locator('.topbar .tb-nav-tech');
-    const opener = (await nav.isVisible()) ? nav : page.locator('.topbar .research-chip');
+    const opener = page.locator('.topbar .research-chip');
     await opener.click();
     await expect(page.locator('dialog.tech-modal')).toBeVisible();
     await expect(page.locator('dialog.tech-modal').getByTestId('research-objectives')).not.toHaveClass(/\bno-obj\b/);

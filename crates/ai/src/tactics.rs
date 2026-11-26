@@ -69,7 +69,7 @@ impl Planner<'_> {
     ) -> i32 {
         let tier = u8::from(city.walls) + city.fort_tier();
         let covered = if data::built_in_siege(e.kind) {
-            data::MAX_WALL_TIER
+            data::unit_era_tier(e.kind)
         } else if e.siege {
             match self.view().era_of(e.owner) {
                 0..=2 => 1,
@@ -89,11 +89,14 @@ impl Planner<'_> {
             self.view().era_of(city.owner),
         )
         .total;
-        combat::damage_to_city_hp(
-            combat::wall_damage_percent(tier, covered, false),
+        // The Walls bar stands in front of the HP (breakable Walls): the hit counts for the
+        // share of the whole front it removes.
+        combat::front_damage_as_hp(
             combat::damage(attack, defense, roll),
+            city.hp,
+            city.walls_hp,
+            combat::wall_damage_percent(tier, covered, false),
         )
-        .min(city.hp)
     }
 
     pub(crate) fn ranged_unit_clear(&self, u: &UnitView, from: Hex, to: Hex) -> bool {

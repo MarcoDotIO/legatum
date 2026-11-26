@@ -74,6 +74,8 @@ export function handleAircraftKey(e: KeyboardEvent) {
   }
 }
 
+import { canUse3d, useMapView } from '../map3d/mapPrefs';
+
 export function handleGameKey(e: KeyboardEvent) {
   if (!gameplayKeyAllowed(e) || e.repeat) return;
   const s = useGame.getState();
@@ -111,16 +113,6 @@ export function handleGameKey(e: KeyboardEvent) {
       else s.select(null);
       break;
     }
-    case '1':
-    case '2':
-    case '3':
-    case '4':
-    case '5':
-    case '6':
-    case '7':
-    case '8':
-      s.setSeat(Number(e.key) - 1);
-      break;
     case 'e':
     case 'E':
       toggleAutoExploreSelected();
@@ -201,6 +193,11 @@ export function handleGameKey(e: KeyboardEvent) {
     case 'p':
     case 'P':
       if (!e.ctrlKey && !e.metaKey && !e.altKey && s.canPing()) s.setPingMode(!s.pingMode);
+      break;
+    case 'm':
+    case 'M':
+      // Swap between the 3D map and the 2D map (the strategic view), where 3D is available.
+      if (canUse3d()) useMapView.getState().toggle();
       break;
   }
 }

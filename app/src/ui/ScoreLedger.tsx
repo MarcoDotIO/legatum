@@ -253,7 +253,7 @@ export function ScoreLedger({ model, turn, close, closeRef }: { model: VpModel; 
         <h2 id="vh-sheet-title">Score ledger</h2>
       </div>
       <p className="sl-win">The first team to hold <b>{target} VP</b> for 10 turns wins. World wonders, rival capitals and goals can be lost; Age points stay earned.</p>
-      <button ref={closeRef} type="button" className="btn quiet vh-close" onClick={close} aria-label="Close objectives">Close <kbd className="kbd">Esc</kbd></button>
+      <button ref={closeRef} type="button" className="btn quiet vh-close" onClick={close} aria-label="Close score ledger">Close <kbd className="kbd">Esc</kbd></button>
     </header>
     <div className="sl-body" ref={body}>
       <table className="sl-table" style={{ ['--cols' as string]: n }}>

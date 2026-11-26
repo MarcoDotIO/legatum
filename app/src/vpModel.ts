@@ -243,12 +243,12 @@ export function buildVpModel(view: PlayerView): VpModel {
   const works = [baseWork, ...extraWorks];
   const capitalSources: Source[] = alive.flatMap((p) => (p.capitals_taken ?? []).map(([id, name]) => ({
     id: `capital-${p.id}-${id}`, kind: 'capital' as const, name, icon: 'city', vp: 1,
-    rule: `${p.name} holds the original capital ${name}: 1 VP while holding it`,
+    rule: `${empireOfPlayer(view, p.id)} holds the original capital ${name}: 1 VP while holding it`,
     terms: 'Held · follows the city', live: true, held: true,
     owners: [p.id], own: own([p.id]), facts: [{ id: p.id, value: 1, label: name }], unit: '',
   })).concat((p.capitals_sacked ?? []).map(([id, name]) => ({
     id: `capital-sacked-${p.id}-${id}`, kind: 'capital' as const, name, icon: 'city', vp: 1,
-    rule: `${p.name} sacked the original capital ${name}: 1 VP, kept for good`,
+    rule: `${empireOfPlayer(view, p.id)} sacked the original capital ${name}: 1 VP, kept for good`,
     terms: 'Kept · the city is gone', live: false, held: false,
     owners: [p.id], own: own([p.id]), facts: [{ id: p.id, value: 1, label: name }], unit: '',
   }))));

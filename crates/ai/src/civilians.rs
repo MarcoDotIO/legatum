@@ -667,16 +667,40 @@ impl Planner<'_> {
         }
         // Gene `rome_colonia`: a level-3 veteran founds the Colonia Victrix first.
         self.plan_colonia();
+        // Gene `rome_found_now`: no six-city cap and no wait for the opening march.
+        let found_now = self.rome_found_now();
         if self.faction == Faction::Rome
+            && (found_now || !self.rome_opening_active())
             && self.hard_defense()
             && self.decisions.roman_founders > 0
-            && self.ctx.own_cities.len() < 6
+            && (found_now || self.ctx.own_cities.len() < 6)
         {
             // Gene `roman_finish_siege`: a siege whose capture still forecasts keeps its
             // committed units; a captured city is worth more than a founded one.
             let siege = self.roman_live_siege();
-            let in_siege =
-                |u: &UnitView| siege.as_ref().is_some_and(|(_, ids)| ids.contains(&u.id));
+            // Gene `rome_found_now`: a wounded veteran fights on only where
+            // `rome_wounded_fights_on` says so. Gene `rome_recruit_captures`: a badly hurt
+            // unit one fight from its promotion counts as one.
+            let wounded = |p: &Self, u: &UnitView| {
+                (u.level >= 1 && u.hp < legatum_core::data::UNIT_HP) || p.rome_near_veteran_hurt(u)
+            };
+            let kept: Vec<UnitId> = if found_now {
+                self.ctx
+                    .own_units
+                    .iter()
+                    .filter(|u| wounded(self, u) && self.rome_wounded_fights_on(u))
+                    .map(|u| u.id)
+                    .collect()
+            } else {
+                Vec::new()
+            };
+            let in_siege = |u: &UnitView| {
+                if found_now {
+                    kept.contains(&u.id)
+                } else {
+                    siege.as_ref().is_some_and(|(_, ids)| ids.contains(&u.id))
+                }
+            };
             // A veteran cannot retire while wounded. Let a safe one recover before
             // ordinary military assignments spend another turn of its health.
             let healing: Vec<_> = self
@@ -685,8 +709,7 @@ impl Planner<'_> {
                 .iter()
                 .copied()
                 .filter(|u| {
-                    u.level >= 1
-                        && u.hp < legatum_core::data::UNIT_HP
+                    wounded(self, u)
                         && legatum_core::data::unit_class(u.kind) == Some(UnitClass::Melee)
                         && !self.has_acted(u.id)
                         && self.exposure_at(u.pos) == 0
@@ -707,8 +730,7 @@ impl Planner<'_> {
                     .iter()
                     .copied()
                     .filter(|u| {
-                        u.level >= 1
-                            && u.hp < legatum_core::data::UNIT_HP
+                        wounded(self, u)
                             && legatum_core::data::unit_class(u.kind) == Some(UnitClass::Melee)
                             && !self.has_acted(u.id)
                             && self.exposure_at(u.pos) > 0
@@ -716,12 +738,27 @@ impl Planner<'_> {
                             && !in_siege(u)
                     })
                     .collect();
+                let walk_home = self.rome_recruit_captures();
                 for u in exposed {
-                    self.retreat(u);
+                    // Gene `rome_recruit_captures`: with no safer tile in one move, it walks
+                    // home instead of fighting on where it stands.
+                    if !self.retreat(u)
+                        && walk_home
+                        && let Some(home) = self.ctx.nearest_own_city(u.pos).map(|c| c.pos)
+                        && home != u.pos
+                        && self.move_or_hold(u, home)
+                    {
+                        self.retreats.insert(u.id);
+                    }
                 }
             }
         }
+        if found_now {
+            self.plan_rome_found_now();
+            return;
+        }
         if self.faction == Faction::Rome
+            && !self.rome_opening_active()
             && self.hard_defense()
             && self.decisions.roman_founders > 0
             && self.ctx.own_cities.len() < 6
@@ -1151,7 +1188,7 @@ impl Planner<'_> {
     /// Percent chance a city founded at `h` this turn falls to the visible attack: the at-war
     /// military that can reach it by next turn against a new city's defence. `empires_only`
     /// (gene `found_now`) leaves barbarians out: their raiders never assault a city.
-    fn fresh_city_loss(&self, h: Hex, empires_only: bool) -> i32 {
+    pub(crate) fn fresh_city_loss(&self, h: Hex, empires_only: bool) -> i32 {
         let v = self.view();
         let pressure: i32 = self
             .ctx

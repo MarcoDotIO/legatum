@@ -38,7 +38,7 @@ for (const size of sizes) {
       await page.getByRole('button', { name: /^Single Player/ }).click();
       await page.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: size.map }).click();
       for (let seat = size.seats + 1; seat <= 4; seat++) await page.getByLabel(`Seat ${seat} type`, { exact: true }).selectOption('closed');
-      await page.getByRole('radiogroup', { name: 'AI level (all AI empires)', exact: true })
+      await page.getByRole('radiogroup', { name: 'AI level', exact: true })
         .getByRole('radio', { name: level === 'Hard' ? /^Hard/ : /^Training/ }).click();
       await page.getByLabel('Map seed', { exact: true }).fill('7100003');
       await page.getByRole('button', { name: /^Start game/ }).click();

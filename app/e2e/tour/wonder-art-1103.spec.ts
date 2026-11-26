@@ -1,5 +1,5 @@
 // Review shots for the painted world wonders (claude/wonder-art-1103): all seven on the map beside a city at both window sizes,
-// each close up, the unlock cards that show them and the Guide's seven-wonder row. Run alone:
+// each close up, the unlock cards that show them and How to Play's seven-wonder row. Run alone:
 // `npx playwright test e2e/tour/wonder-art-1103`. Shots land in test-results/screen-tour/<size>/wonder-art-1103/.
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';
@@ -102,7 +102,7 @@ for (const size of SIZES) test.describe(`wonder art ${size.name}`, () => {
     }
   });
 
-  test('the unlock cards that show the new wonders, and the Guide row', async ({ page }) => {
+  test('the unlock cards that show the new wonders, and How to Play row', async ({ page }) => {
     test.setTimeout(180_000);
     await loadFixture(page, coreFixture(researchFixture('India')), 2);
     const unlockReport = async (p: Page, tech: TechId) => {

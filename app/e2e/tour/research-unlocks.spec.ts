@@ -23,10 +23,8 @@ for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
     test.setTimeout(120_000);
     const research = page.locator('dialog.tech-modal');
     const openResearch = async (p: Page) => {
-      // A crowded top bar (the Cities button shares its room) drops the Technologies button first; the research cell
-      // opens the same dialog. Click whichever shows, and fail in 5 s naming it rather than waiting out the test.
-      const nav = p.locator('.topbar .tb-nav-tech');
-      const opener = (await nav.isVisible()) ? nav : p.locator('.topbar .research-chip');
+      // The Research chip is the one top-bar opener.
+      const opener = p.locator('.topbar .research-chip');
       await expect(opener).toBeVisible({ timeout: 5000 });
       await opener.click();
       await expect(p.locator('dialog.tech-modal')).toBeVisible();
@@ -421,7 +419,7 @@ for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
     }
   });
 
-  test('the Guide: Eras section', async ({ page }) => {
+  test('How to Play: Eras section', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });

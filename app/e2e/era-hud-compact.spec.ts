@@ -11,7 +11,7 @@ for (const viewport of [{ width: 1000, height: 600 }, { width: 1440, height: 900
     const hud = page.getByTestId('era-hud');
     await expect(hud.getByTestId('era-objective')).toHaveCount(1);
     await expect(hud).not.toContainText('of 10 VP');
-    await hud.getByRole('button', { name: /How you win/ }).click();
+    await page.getByRole('region', { name: 'Victory race', exact: true }).getByRole('button', { name: 'Score ledger', exact: true }).click();
     await expect(page.getByTestId('objective-sheet')).toBeVisible();
     await page.keyboard.press('Escape');
     await expectSidebarGlance(page);

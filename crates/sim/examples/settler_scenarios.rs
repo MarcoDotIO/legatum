@@ -124,6 +124,8 @@ fn arena(scenario: Scenario, seed: u64) -> (GameState, Vec<UnitId>, Hex) {
             last_purchase_turn: None,
             bought: None,
             buildings: Default::default(),
+            walls_level: 0,
+            walls_damage: 0,
             hp: data::CITY_HP,
             tiles_claimed: 0,
             grown_tiles: Vec::new(),

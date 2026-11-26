@@ -28,6 +28,8 @@
     <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png" />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- Lets a browser install the game as an app with its own window (Settings offers it: ui/DisplaySettings.tsx). -->
+    <link rel="manifest" href="/manifest.webmanifest" />
     <!-- The loading plate below (#boot-plate) shows while the ~7 MB engine downloads; React replaces it on
          mount (main.tsx). Styles only, no script: the hosted Content-Security-Policy (hosted/_headers)
          allows inline styles but no inline scripts. Colours are brand/tokens.css's --bg, --ink, --ink-2, --rule, --accent. -->

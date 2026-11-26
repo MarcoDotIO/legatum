@@ -1,6 +1,6 @@
 # Game event → haptic map
 
-This is the single source of truth for Legatum haptics. Add a row before adding a haptic anywhere. The semantic names are the `feel.*` functions in `app/src/feel/haptics.ts`. "Viewer" means the local player whose screen is shown (in hot seat, the active seat).
+This is the single source of truth for Legatum haptics. Add a row before adding a haptic anywhere. The semantic names are the `feel.*` functions in `app/src/feel/haptics.ts`. "Viewer" means the local player whose screen is shown.
 
 ## Direct interactions (fire at the moment of user intent)
 
@@ -34,6 +34,7 @@ This is the single source of truth for Legatum haptics. Add a row before adding 
 | `buildingComplete` | A viewer building completed (Great Work: see below) | `impactFeedback('light')` |
 | `greatWork` | Viewer Great Work, faction goal or milestone VP gained | `notificationFeedback('success')` + `impactFeedback('heavy')` |
 | `vpGained` | Viewer VP increased from a title | `impactFeedback('medium')` |
+| `vpGained` | A treaty took effect for the viewer's team (an accepted Peace, Alliance or Open Borders offer, with any deal Gold); its moment card's tier sting voices it (`sting.notable`; `sting.major` for an Alliance) | `impactFeedback('medium')` |
 | `vpLost` | The viewer lost a title | `notificationFeedback('warning')` |
 | `warning` | Bankruptcy disband forecast, a city starving, or an enemy adjacent to a city (first time only) | `notificationFeedback('warning')` |
 | `eliminated` | The viewer is eliminated | `notificationFeedback('error')` then `impactFeedback('heavy')` |
@@ -47,6 +48,7 @@ This is the single source of truth for Legatum haptics. Add a row before adding 
 | `partnerReady` | A teammate or other human marks Ready | `impactFeedback('light')` |
 | `allReady` | The last human readies and the turn begins resolving | `impactFeedback('medium')` |
 | `seatTaken` | Your seat was taken over on another device | `notificationFeedback('warning')` |
+| `teamPing` | A teammate pings a tile (not your own pings) | `impactFeedback('light')` |
 
 ## Never
 
@@ -60,3 +62,29 @@ they do not add a second haptic or sound. A wired tier hook replaces the semanti
 sound, otherwise the existing semantic sound plays. `discovery` and all four hooks ship CC0 Kenney sounds in the audio manifest: a
 single pluck, short pizzicato, fuller pizzicato, and an orchestral Hit fanfare.
 Interrupted celebrations cancel only their decorated beats; losses still play. Partner celebration cards have no haptic.
+
+## Battle and land sound (no haptic)
+
+These are heard, not felt, and are not `feel.*` events: the map schedules them itself (`app/src/feel/battleSound.ts`, `app/src/feel/sound.ts`).
+
+| Sound | Trigger | Limit |
+| --- | --- | --- |
+| Bow, arrow hit | An archer or crossbow volley in the turn's battle animation leaves, and lands if it did damage | 2 each a turn |
+| Catapult throw, stone hit | A stone shot leaves and lands | 1 throw, 2 hits a turn |
+| Hooves, clash | A melee clash before gunpowder; hooves lead a mounted charge | 1 hooves, 2 clashes a turn |
+| Death cry | A pre-gunpowder unit falls | 2 a turn |
+| Soldier falls | A soldier of the gunpowder age or later falls (a second set of cries). A destroyed machine (tank, artillery, aircraft, drone) sounds the explosion instead; a Settler is silent | 2 a turn |
+| Gunshot | A melee of rifle-armed units meets (the Industrial era or later) | 2 a turn |
+| Musket | A musket volley leaves, or a melee of musket-armed units meets (the Renaissance) | 2 a turn |
+| Drone | A combat drone flies in | 1 a turn |
+| Cannon | A cannon fires | 2 a turn |
+| Shell fire, explosion | Artillery or a tank gun fires, and its shell lands; a bomber's bombs land | 1 firing, 2 explosions a turn |
+| Aircraft, jet | An aircraft's run, 1.5 s before its bombs are released: the propeller recording for the Biplane, Fighter and Bomber, the jet recording for the jets and stealth aircraft | 1 each a turn |
+| Collapse | A city is razed | every one |
+| Land and sea loop (birds, wind, cold wind, waves) | The land or sea under the middle of the map view, read every 1.5 s; two readings must agree | one loop, on the Effects bus at half level |
+
+At most 10 battle sounds a turn, chosen by consequence in the order collapse, death, soldier falls, explosion, clash, gunshot, cannon, musket, shell fire, aircraft, jet, drone, stone hit, arrow hit, bow, throw, hooves. The same sound inside 160 ms is one sound. Battle sound follows the map-animation setting.
+
+Music follows the listener's era as well as its people: tracks marked `eras` in the manifest play only then (the 0 A.D. music in eras 1 to 3, the FreeCol and Unknown Horizons music in eras 4 and 5, the Battle for Wesnoth music in eras 6 and 7, the Warzone 2100 music in eras 8 and 9), except a people's opening track, which stays in rotation all game. A new era never cuts the track that is playing.
+
+The land and sea loop is one hook, `map/useLandSound.ts`, used by both the 2D and the 3D map. Battle sound is scheduled by the 2D map only, because the 3D map does not draw battles yet; when it does, it calls `playBattleSounds(battleSoundCues(plan), elapsed)` against its own animation clock.

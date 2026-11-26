@@ -28,7 +28,7 @@ guest tab                 --wss-->  Cloudflare Worker (infra/relay)  <--wss (dia
 - **Limits**: the game lives in the host's tab. Closing that tab (or its browser) ends the game for everyone
   (the relay drops the room after 120 s, or at once on `bye` when the host leaves through the menu). A reload of
   the host tab resumes the game in the same room from the save kept in `sessionStorage`; a reload of a guest
-  tab rejoins its room and seat. A new tab cannot take over a hosted game. To outlive the tab, the host
+  tab rejoins its room and seat (a restarted device does too: see "Kept seat"). A new tab cannot take over a hosted game. To outlive the tab, the host
   saves to a file (game menu, host only) and later hosts from it (see "Save to file and host from a save"). A WASM panic (a host bug) stops the
   game: Rust's `catch_unwind` does not work in WASM.
 
@@ -46,7 +46,7 @@ Base URL `RELAY` (live: `https://relay.playlegatum.com`). All responses carry
 | GET (WS) | `/rooms/<id>/ws` | A guest connection, piped to the host. Closed with code 1013 when the host tunnel is absent |
 
 ```
-RoomAnnounce = { name: string (<= 80 chars, the host's display name),
+RoomAnnounce = { name: string (<= 80 chars; ignored: the relay lists the room as `listedName(room)`),
                  build: string (<= 40, the app's build label, e.g. "8.9.74"),
                  rules_version: number, protocol: number,
                  locked?: boolean (default false: the host set a join code) }
@@ -58,13 +58,13 @@ RoomInfo     = RoomAnnounce & { room: string, locked: boolean, players: number, 
 `players/humans/open_seats/phase/turn` come from the host's `summary` control frames (below); the relay stores
 them as opaque numbers and strings.
 
-Limits (relay): at most 64 rooms, 8 guest sockets per room, 64 KiB per guest-to-host message, 1 MiB per
+Limits (relay): at most 256 rooms, 8 guest sockets per room, 64 KiB per guest-to-host message, 1 MiB per
 host-to-guest message, room id 10+ and host key 32+ random URL-safe characters. A room is deleted 120 s after
 its host tunnel drops without returning, and immediately on a `bye` frame. Use the WebSocket Hibernation API.
 Since the relay hardening (2026-11-22) it also caps rooms and creations per client address, guest sockets per address,
-message rates (close 4029), cleans room names and has a `LOBBY_OPEN` kill switch; `infra/relay/README.md` ("Limits and
+message rates (close 4029), 8 live rooms per network (IPv4 /24, IPv6 /48), lists every room under a name made from its id (never a typed one; 2026-11-25) and has a `LOBBY_OPEN` kill switch; `infra/relay/README.md` ("Limits and
 kill switch") holds the numbers. Security review (2026-11-22): an IPv6 client counts as its /64 for every per-address limit,
-the `build` label takes only letters, digits, spaces and `. · ( ) _ + -`, a host `status` frame over 64 KiB is dropped, and
+the `build` label must match one of the forms the game makes (`buildOk` in `infra/relay/src/shared.ts`, 2026-11-25), a host `status` frame over 64 KiB is dropped, and
 every relay answer carries `X-Content-Type-Options: nosniff`.
 
 ### Join code, one seat per connection and Remove (2026-11-22 security review)
@@ -73,8 +73,8 @@ The lobby is public, so a stranger could open a listed game, take every open sea
 could not remove a connected player. The owner chose a short code typed once, not join links, and the game still
 shows in the list.
 
-- **Join code (optional).** The host types 4 to 12 letters or digits in the "Join code" box next to the name on
-  Host Game and Host from a save (empty = an open game). The code lives only in the host engine
+- **Join code (optional).** The host types 4 to 12 letters or digits in the "Lock with a code" box in the
+  Host door, used by Host Game and Host from a save (empty = an open game). The code lives only in the host engine
   (`BrowserHost.set_join_code`, `crates/wasm/src/host/mod.rs`) and in the host tab's `sessionStorage`
   (`legatum.online.joincode`, next to the room key, so a host reload keeps the game locked; a reload that cannot find
   the code does not reopen the game unlocked). It is never in a `Status`, `Summary`, staging state, view, save, game
@@ -88,7 +88,7 @@ shows in the list.
   rejoin with the seat's own credential (`join`, or `staging_take` with its token) needs no code, and the host's own
   connection never needs it. After 5 wrong codes from one connection the host closes it (terminal error
   `too_many_codes`); a missing code is not a strike. The guest types the code once in an inline box on the seat screen; it
-  is kept in memory only.
+  is kept in memory only. It takes focus on arrival. A `wrong_join_code` refusal is shown on that box (red box, hint "Wrong code. Check it with the host and try again.") until the player changes the text, on the Join screen and in the game room alike; it is not also raised as the screen's error notice (2026-11-25).
 - **Limit:** every new connection starts with 0 strikes, so the lockout slows guessing but does not stop a script that
   reconnects; the relay's per-address socket and rate caps are what bound that (see Limits). A 4-character code is weak
   against that; use 8 or more for a game you care about.
@@ -117,12 +117,13 @@ the player sees in the app. Player text never says "relay", "socket" or an HTTP 
 | --- | --- | --- |
 | 6 room creations per 10 minutes per address | 429 with `Retry-After` (exposed to browsers by `Access-Control-Expose-Headers`; the body says "too quickly" too) | Host: "You have opened too many games lately. Try again in N minutes." (N from `Retry-After`, rounded up, at least 1; "Try again in a few minutes." when the header cannot be read). Host Game says "Try again in N minutes" and is not the primary; Join Game is. |
 | 2 live rooms per address | 429, no `Retry-After` | Host: "Your internet connection already has 2 games open. Close one before hosting another." (the 2 mirrors `MAX_ROOMS_PER_IP` as `MAX_ROOMS_PER_ADDRESS`). Host Game says "Close one of your games first" and is not the primary. |
-| 64 rooms in all | 503 | Host: "The game list is full right now. Try again in a few minutes." Host Game says "Try again" and stays the primary. |
+| 256 rooms in all | 503 | Host: "The game list is full right now. Try again in a few minutes." Host Game says "Try again" and stays the primary. |
+| 8 live rooms per network (IPv4 /24, IPv6 /48) | 429 "Too many games are open from your network. Try again later." | Host: "Too many games are open from your network. Try again later." Host Game says "Too many from your network" and is not the primary (`refusalFor` kind `network`). |
 | `LOBBY_OPEN=0` kill switch | 503 ("paused") | Host: "Hosting new games is paused. Try again later." Host Game says "Paused for now" and is not the primary. |
 | Relay unreachable | no answer | Host: "Could not open your game. Check your internet connection and try again." |
 | 4 guest sockets per address per room | WebSocket close 1013, reason "too many connections from one address" | Guest: "Too many people on your internet connection have joined this game. Close any extra windows, then pick your seat again." The app stops retrying. Close 1013 for "host not connected" or "room is full" reconnects as usual. |
 | Per-socket message and byte budgets | WebSocket close 4029 | Guest: "You are sending too much, too fast. Pausing for 30 seconds, then reconnecting." One retry; a second 4029 before any game state arrives stops it with "You are still sending too much, too fast. Wait a minute, then pick your seat again." The host's own tunnel just reconnects. |
-| Room names cut to 40 visible characters, symbols and emoji dropped | name cleaned, "Game XXXX" when empty | Host: the name box holds 40 characters and says "Shown in the game list as “X”." when the list will show something else, or "Listed as “Game” and four characters." when nothing showable is left (the Worker names an empty game "Game" and the first four characters of its id). The note replaces the label above the box, so it adds no height (`app/src/net/roomName.ts` mirrors the Worker's rule, minus its word blocklist) |
+| The list never shows a typed name | every room listed as two fixed words and a number from its id ("Amber Harbour 07", `listedName`) | Host: the name box is only "Your name" (it names the host's seat, never the list entry). Once the room is open, the game room shows a line under the subtitle that says "In the game list, this game is “Amber Harbour 07”." The same line is in the host's in-game menu foot and the Online chip's tip (`GameMenu.tsx`, `TopBar.tsx`). (`app/src/net/roomName.ts` mirrors the Worker's rule). `GET /lobby` also rebuilds the name from the id for rows an older relay stored, and leaves out rows whose build label fails `buildOk` |
 | 60 s host heartbeat | room leaves the list | The app's tunnel sends a ping every 20 s, so nothing shows; a host whose tab sleeps drops off the list |
 
 When the relay forgets a room while the host's tunnel is down, the host announces a new room; if that is refused, the
@@ -185,6 +186,8 @@ already). The host's own in-tab connection never sees chunks.
   over. Seat credentials are not saved. `open_guest_seats` opens every seat but seat 0 (the host's, which
   `hostOnlineFromSave` takes at once), so guests join from the list and take their old seat with its saved name. A new room has a new id and key.
 - Seat credentials are 256-bit random hex from `crypto.getRandomValues`.
+- Kept seat (2026-11-25): `rememberSeat` also writes the last game seat's room, seat, name and credential to `localStorage` (`legatum.online.kept-seat`, `remote.ts::keptSeat`; never a lobby-room seat). After a restart the Join list marks that game "Your seat is here" and lists it even when it shows full; its button reads Rejoin and takes the kept seat straight back with the kept credential (the seat screen also offers "Rejoin as <name>"), so the host need not press Open seat. It is offered, never joined automatically. Best effort: if storage is blocked the host opens the seat as before.
+- A dropped human: the host resolves the turn when every connected human is Ready (`disconnect` -> `resolve_if_ready`); the away empire gets no orders. The game screen names who is not connected and their empire by its faction (`app/src/awayPlayers.ts`); their seat row reads "Away" and Ready opens "End the turn without <name>?" (`EndTurnConfirmation.tsx`), primary "Wait for <name>". No pause: a player who never returns would freeze the game.
 
 ## Build (`scripts/build-web.sh`)
 
@@ -196,10 +199,11 @@ already). The host's own in-tab connection never sees chunks.
 
 ## UI (`app/src`)
 
-- **Multiplayer > Host Game**: asks for the name shown in the game list, starts the in-tab host and lands in the
+- **Multiplayer menu** (2026-11-25): one "Your name" field (used for hosting and for the seat you take), then two doors side by side: Host (join code, Host Game, Host from a save) and Join (Join Game).
+- **Multiplayer > Host Game**: starts the in-tab host and lands in the
   existing staging room. In a running game the host's menu item is **End the game for everyone** (after a confirm);
   it sends `bye`, closes the room and returns to the title. A guest's item is **Leave the game (free this seat)**.
-- **Multiplayer > Join Game**: a lobby list from `GET /lobby` (refresh every 3 s): host name,
+- **Multiplayer > Join Game**: a lobby list from `GET /lobby` (refresh every 3 s): the listed name (never a typed one),
   players, open seats, "Waiting in lobby" or "Turn N", and "Locked" with a lock mark for a game with a join code. One
   primary action per row: **Join**. On a locked game the seat screen asks for the code once ("Join code", seat buttons
   wait for it). A row whose
@@ -209,7 +213,7 @@ already). The host's own in-tab connection never sees chunks.
   in the row with an alert mark; neither can be joined. Empty state: "No games are being hosted right now."
 - Joining sets the server base to `RELAY/rooms/<id>`: status from `<base>/api/status`, socket at `<base>/ws`
   through `relaySocket.ts`. Everything after that is the existing staging room and game.
-- A build without a relay offers hot seat only.
+- A build without a relay disables Multiplayer and explains that online play is unavailable.
 
 ## Tests
 

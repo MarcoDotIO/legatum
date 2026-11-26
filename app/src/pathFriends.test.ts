@@ -173,6 +173,16 @@ describe('previewRoute: the screenshot case and its warnings', () => {
     expect(previewRoute(viewFromFixture(s, 0), r, c, orders, right.id)).toEqual({ path: [f, c], risk: null });
   });
 
+  it('names an allied unit by faction in route warnings', () => {
+    const s = fixture();
+    spawnUnit(s, 0, 'Spearman', fromOffset(3, 4), false);
+    refreshVision(s);
+    const view = viewFromFixture(s, 0);
+    Object.assign(view.players[1], { name: 'AI 3', faction: 'Mongols', team: view.team });
+    const unit = { ...view.units[0], owner: 1 };
+    expect(routeRiskText(view, { hex: unit.pos, unit, stays: false })).toBe("Path may be blocked by Mongols's Spearman: it must move out first.");
+  });
+
   it('passes through a friend that stays, and warns when it cannot', () => {
     const s = fixture();
     for (let col = 0; col < 20; col++) for (let row = 0; row < 12; row++) if (row !== 4) s.terrain[idxOf(s, fromOffset(col, row))] = 'Mountains';

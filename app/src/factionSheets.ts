@@ -6,7 +6,7 @@
 import {
   FLOWER_WARS, AZTEC_NO_HORSES, BUILDING_STATS, INDIA_CAPITAL_RADIUS, INDIA_NETWORK_PERCENT_PER_CITY, INDIA_NETWORK_RADIUS, INDIA_YIELD_PERCENT_PER_HEX,
   GERMANY_PROJECT_GOLD_PERCENT, GERMANY_PROJECT_SCIENCE_PERCENT, PROJECT_GOLD_PERCENT, PROJECT_SCIENCE_PERCENT, EGYPT_NILE_BUILD_PERCENT,
-  KESHIG_KIND, RULES, SPECIAL_UNIT, TECH_NAME, UNIT_NAME, UNIT_STATS, specialUnitEdge, specialUnitName, companyRule, THIN_LEVIES, factionGoalVp, itemName, swissInterestRule, swissTollRule, SWISS_CHEAP_BUYS, SWISS_CAPTURE_RULE, unitStatsFor,
+  KESHIG_KIND, RULES, SPECIAL_UNIT, TECH_NAME, UNIT_NAME, UNIT_STATS, specialUnitEdge, specialUnitName, companyRule, THIN_LEVIES, THIN_LEVIES_DETAIL, factionGoalVp, itemName, swissInterestRule, swissTollRule, SWISS_CHEAP_BUYS, SWISS_CAPTURE_RULE, unitStatsFor,
 } from './data';
 import { pieceAgainst } from './pieceCompare';
 import type { BuildingKind, Faction, ProductionItem, TechId } from './types';
@@ -24,6 +24,9 @@ interface FactionPair {
   strength?: string;
   /** The cost-column rule (red). A drawback that only restates a strength is not a cost. */
   price?: string;
+  /** The Guide's fuller wording of the strength or price, when the sheet's headline leaves out exceptions and numbers a player can look up (the board-game rule: the card says the rule, the Guide the fine print). */
+  strengthDetail?: string;
+  priceDetail?: string;
   /** Icon-set names for the medallions on this row (src/assets/icons). */
   strengthIcon?: string;
   priceIcon?: string;
@@ -36,7 +39,7 @@ export interface FactionSheet {
   piecePairs?: boolean;
   /** Three-word identity shown on the gallery tile. */
   identity: string;
-  /** An early design, tagged on the tile and sheet: not yet through a playtest (Egypt, until the user has played it), or with no faction goal yet (none now). */
+  /** An early design, tagged on the tile and sheet: not yet through a playtest, or with no faction goal yet (none now). */
   early?: true;
   /** 2-3 sentence lore paragraph in the existing voice. */
   lore: string;
@@ -96,24 +99,23 @@ export function sheetCards(faction: Faction): SheetCard[] {
 export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
   Egypt: {
     identity: 'The river builds everything',
-    early: true,
     lore: 'The Nile flood fed the builders of Egypt. In play, each city chooses between building with its Food and growing with it.',
     ratings: { aggression: 2, economy: 5, complexity: 3 },
     pairs: [
-      { strength: `Egyptian cities get double Food. Food beyond what their people eat builds whatever the city is working on, units and Settlers included${EGYPT_NILE_BUILD_PERCENT === 100 ? '' : `: ${EGYPT_NILE_BUILD_PERCENT} progress for every 100 Food`}.`, price: "Egypt has no Production. A city that is building doesn't grow: switch it to Grow to grow it.", strengthIcon: 'yield-food', priceIcon: 'yield-production' },
+      { strength: 'Egyptian cities get double Food, and surplus Food builds what the city is working on.', strengthDetail: `Egyptian cities get double Food. Food beyond what their people eat builds whatever the city is working on, units and Settlers included${EGYPT_NILE_BUILD_PERCENT === 100 ? '' : `: ${EGYPT_NILE_BUILD_PERCENT} progress for every 100 Food`}.`, price: "Egypt has no Production. A city that is building doesn't grow: switch it to Grow to grow it.", strengthIcon: 'yield-food', priceIcon: 'yield-production' },
       { strength: 'Royal Granary replaces the Granary and gives +3 Food total.', strengthIcon: 'building-royalgranary', onCard: true },
-      specialRow('Egypt', 'unit-medjay'),
+      specialRow('Egypt', 'unit-chariot-archer'),
     ],
-    counteredBy: 'Strike while its cities are busy growing or working on the Royal Tomb, and take its Food-rich sites.',
+    counteredBy: 'Strike while it grows or builds the Royal Tomb, take its Food-rich sites, and fight its Chariot Archers in Forest or Hills.',
   },
   Rome: {
     identity: 'Veterans found cities',
     lore: 'Roman veterans received land after military service. In play, each new city costs a seasoned soldier, leaving fewer defenders in the field.',
     ratings: { aggression: 4, economy: 2, complexity: 3 },
     pairs: [
-      { strength: 'A full-health melee veteran (level 1 or higher) can found a city; the unit is consumed.', price: 'Rome cannot train or buy Settlers.', strengthIcon: 'faction-rome', priceIcon: 'unit-settler' },
+      { strength: 'A melee veteran at full health can found a city.', strengthDetail: 'A full-health melee veteran (level 1 or higher) can found a city; the unit is consumed.', price: 'Rome cannot train or buy Settlers.', strengthIcon: 'faction-rome', priceIcon: 'unit-settler' },
       specialRow('Rome', 'unit-legionary'),
-      { strength: 'Castrum replaces Walls. Upgrading a melee unit in its city restores 50 HP, up to full health, once per upgrade order.', strengthIcon: 'building-castrum', onCard: true },
+      { strength: 'Castrum replaces Walls. Upgrading a melee unit in its city restores 50 health.', strengthDetail: 'Castrum replaces Walls. Upgrading a melee unit in its city restores 50 health, up to full health, once per upgrade order.', strengthIcon: 'building-castrum', onCard: true },
     ],
     counteredBy: 'Wound a founder before the city appears, claim the site first, or attack the army left behind.',
   },
@@ -121,7 +123,7 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     identity: 'War feeds cities',
     lore: 'From Tenochtitlan, a city of canals and causeways, the Mexica fought to take captives. At the New Fire ceremony, torches carried a renewed flame to the cities.',
     ratings: { aggression: 5, economy: 3, complexity: 2 },
-    pairs: [{ strength: FLOWER_WARS, price: AZTEC_NO_HORSES + '.', strengthIcon: 'milestone-twenty-population', priceIcon: 'unit-horseman' }, specialRow('Aztecs', 'unit-eaglewarrior')],
+    pairs: [{ strength: 'Flower Wars: when your melee units kill an enemy military unit, your nearest city gains +1 population.', strengthDetail: FLOWER_WARS, price: AZTEC_NO_HORSES + '.', strengthIcon: 'milestone-twenty-population', priceIcon: 'unit-horseman' }, specialRow('Aztecs', 'unit-eaglewarrior')],
     lose: 'Ranged armies and Walls deny you the melee victories that grow your cities.',
     counteredBy: 'Keep your soldiers alive; contest the smaller cities after the rite.',
   },
@@ -131,7 +133,7 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     ratings: { aggression: 1, economy: 5, complexity: 3 },
     pairs: [
       { strength: `${swissTollRule()} ${swissInterestRule()}`, price: 'Military unit upkeep is triple: 3 Gold a turn instead of 1.', strengthIcon: 'yield-gold', priceIcon: 'unit-spearman' },
-      { strength: SWISS_CHEAP_BUYS, price: SWISS_CAPTURE_RULE, strengthIcon: 'building-market', priceIcon: 'city' },
+      { strength: SWISS_CHEAP_BUYS, price: 'A rival that captures one of your cities takes part of your treasury.', priceDetail: SWISS_CAPTURE_RULE, strengthIcon: 'building-market', priceIcon: 'city' },
       specialRow('Switzerland', 'unit-reislaufer'),
     ],
     counteredBy: 'Capture their cities to take a share of their treasury.',
@@ -141,9 +143,9 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     lore: 'Akbar ruled a populous Mughal empire through provincial courts and a central treasury. Compact settlements grow quickly, but distant provinces and local revenues resist the centre.',
     ratings: { aggression: 2, economy: 4, complexity: 3 },
     pairs: [
-      { strength: `A city gains ${INDIA_NETWORK_PERCENT_PER_CITY}% Food and Production for every other Indian city within ${INDIA_NETWORK_RADIUS} tiles.`, price: `Corruption cuts all four yields by ${INDIA_YIELD_PERCENT_PER_HEX}% per tile beyond ${INDIA_CAPITAL_RADIUS} from the capital. At ${indiaZeroAt} tiles its Food, Gold and Science reach zero, though Production never falls below 3.`, strengthIcon: 'city', priceIcon: 'capital' },
-      { strength: 'Cities can be founded 3 tiles apart, closer than anyone else. Every city gets +1 Food.', price: 'Non-capital cities send no Gold to the treasury until they have a Revenue Office, then half the Gold they make.', strengthIcon: 'yield-food', priceIcon: 'yield-gold' },
-      { strength: `Revenue Office replaces the Market and keeps +3 Gold. Build one in every owned city to unlock the Imperial Diwan; whoever holds its city scores ${factionGoalVp('India')} VP.`, strengthIcon: 'building-market-india', onCard: true },
+      { strength: `A city gains ${INDIA_NETWORK_PERCENT_PER_CITY}% Food and Production for every other Indian city within ${INDIA_NETWORK_RADIUS} tiles.`, price: `Cities lose ${INDIA_YIELD_PERCENT_PER_HEX}% of their yields for every tile beyond ${INDIA_CAPITAL_RADIUS} from your capital.`, priceDetail: `Corruption cuts all four yields by ${INDIA_YIELD_PERCENT_PER_HEX}% per tile beyond ${INDIA_CAPITAL_RADIUS} from the capital. At ${indiaZeroAt} tiles its Food, Gold and Science reach zero, though Production never falls below 3.`, strengthIcon: 'city', priceIcon: 'capital' },
+      { strength: 'Cities can be founded 3 tiles apart, closer than anyone else. Every city gets +1 Food.', price: 'Cities other than your capital send you no Gold until they build a Revenue Office.', priceDetail: 'Non-capital cities send no Gold to the treasury until they have a Revenue Office, then half the Gold they make.', strengthIcon: 'yield-food', priceIcon: 'yield-gold' },
+      { strength: 'Revenue Office replaces the Market. Build one in every city to unlock the Imperial Diwan.', strengthDetail: `Revenue Office replaces the Market and keeps +3 Gold. Build one in every owned city to unlock the Imperial Diwan; whoever holds its city scores ${factionGoalVp('India')} VP.`, strengthIcon: 'building-market-india', onCard: true },
       specialRow('India', 'unit-warelephant'),
     ],
     counteredBy: 'Capture the Imperial Diwan to take its points. Contest the compact city network.',
@@ -153,7 +155,7 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     lore: 'The eastern Roman Empire held Constantinople for a thousand years. When its thin professional army could not win, it opened the treasury and hired other empires’ armies.',
     ratings: { aggression: 2, economy: 3, complexity: 3 },
     pairs: [
-      { strength: companyRule(), price: THIN_LEVIES, strengthIcon: 'fortify', priceIcon: 'unit-spearman' },
+      { strength: "Hire a Company: buy another empire's special unit with Gold.", strengthDetail: companyRule(), price: THIN_LEVIES, priceDetail: THIN_LEVIES_DETAIL, strengthIcon: 'fortify', priceIcon: 'unit-spearman' },
     ],
     counteredBy: 'Outlast every Company: its countdown is public, its upkeep drains the treasury, and an unpaid Company turns barbarian.',
   },
@@ -166,7 +168,7 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
       { strength: 'Ruhr Foundry: +6 Production (a Forge gives +3).', strengthIcon: 'building-foundry', onCard: true },
       { price: 'Each Production building in a German city costs 1 Food.', priceIcon: 'yield-food' },
       { strength: 'Your strategic deposits supply twice as much.', strengthIcon: 'resource-iron' },
-      { strength: `Your Gold and Science projects turn ${GERMANY_PROJECT_GOLD_PERCENT}% and ${GERMANY_PROJECT_SCIENCE_PERCENT}% of a city’s Production into Gold and Science. Other empires get ${PROJECT_GOLD_PERCENT}% and ${PROJECT_SCIENCE_PERCENT}%.`, strengthIcon: 'yield-gold' },
+      { strength: `Your Gold and Science projects turn ${GERMANY_PROJECT_GOLD_PERCENT}% and ${GERMANY_PROJECT_SCIENCE_PERCENT}% of a city’s Production into Gold and Science.`, strengthDetail: `Your Gold and Science projects turn ${GERMANY_PROJECT_GOLD_PERCENT}% and ${GERMANY_PROJECT_SCIENCE_PERCENT}% of a city’s Production into Gold and Science. Other empires get ${PROJECT_GOLD_PERCENT}% and ${PROJECT_SCIENCE_PERCENT}%.`, strengthIcon: 'yield-gold' },
       specialRow('Germany', 'unit-panzer'),
     ],
     counteredBy: 'Attack early, before their Production builds up.',
@@ -176,7 +178,7 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     lore: 'Celtic-speaking peoples formed many communities across Europe, not one state. In play, warbands raid and burn rather than hold what they take.',
     ratings: { aggression: 4, economy: 3, complexity: 4 },
     pairs: [
-      { strength: `A sack carries off ${RULES.celtsSackGoldPerPopulation} Gold per population and raises a warband camp near the ruins.`, price: "Celts can't keep cities they capture: they sack and burn them. A city you founded comes home intact when you retake it.", strengthIcon: 'yield-gold', priceIcon: 'city' },
+      { strength: `A sack carries off ${RULES.celtsSackGoldPerPopulation} Gold per population and raises a warband camp near the ruins.`, price: "Celts can't keep cities they capture: they sack and burn them.", priceDetail: "Celts can't keep cities they capture: they sack and burn them. A city you founded comes home intact when you retake it.", strengthIcon: 'yield-gold', priceIcon: 'city' },
       { strength: "Barbarians don't attack the Celts.", strengthIcon: 'ui-camp' },
       specialRow('Celts', 'unit-gaesatae'),
     ],
@@ -187,20 +189,20 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     lore: 'Mongol horse archers shot at full gallop; the yam relay network linked an empire.',
     ratings: { aggression: 4, economy: 2, complexity: 2 },
     pairs: [
-      { strength: 'Your military units, Scouts too, get +1 move.', price: 'Your units get no terrain defence. You never build Walls and buy no Siege before the Medieval era.', strengthIcon: 'mark-move', priceIcon: 'fortify' },
+      { strength: 'Your military units, Scouts too, get +1 move.', price: 'Your units get no terrain defence. You never build or upgrade Walls and buy no Siege before the Medieval era.', strengthIcon: 'mark-move', priceIcon: 'fortify' },
       { strength: `Iron Working unlocks it. A Cataphract that can shoot, ${keshig.ranged} ranged strength, ${keshig.range} tiles.`, price: `A Keshig costs ${keshig.cost} Production, ${keshig.cost - cataphractCost} more than a Cataphract.`, strengthIcon: 'unit-keshig', priceIcon: 'yield-production', onCard: true },
       { strength: 'A city with a Market at least 8 tiles from your capital earns +2 Gold more.', strengthIcon: 'building-market' },
     ],
-    counteredBy: 'Mongol cities never have Walls and never fire back, so attack them. Build your own Walls early: before the Medieval era Mongols buy no Siege, so Walls halve everything they throw at you.',
+    counteredBy: 'Attack their cities, which never have Walls. Build Walls early: they buy no Siege before the Medieval era.',
   },
   Sparta: {
     identity: 'Raised for war',
     lore: 'Spartan citizens trained for war through the agoge and fought in disciplined hoplite formations, supported by coerced helot labour.',
     ratings: { aggression: 5, economy: 1, complexity: 3 },
     pairs: [
-      { strength: `Your military units start at level 1, gain XP 50% faster and can reach level 6, Spartan Veteran. Each level adds ${RULES.promotion.strengthPercent}% to a unit’s strength.`, strengthIcon: 'unit-spartanhoplite' },
-      { strength: 'Destroying an enemy unit restores up to 100 HP, shared among your units that hit it. Capturing a city fully heals your military units within 2 tiles.', strengthIcon: 'mark-heal' },
-      { price: 'Settlers and non-military buildings cost 50% more Production. Walls, Castles, Star Forts and the Agoge cost the normal price.', priceIcon: 'unit-settler' },
+      { strength: 'Your military units start at level 1, level up faster and can reach level 6.', strengthDetail: `Your military units start at level 1, gain XP 50% faster and can reach level 6, Spartan Veteran. Each level adds ${RULES.promotion.strengthPercent}% to a unit’s strength.`, strengthIcon: 'unit-spartanhoplite' },
+      { strength: 'Kills heal your units, and capturing a city fully heals your military units nearby.', strengthDetail: 'Destroying an enemy unit restores up to 100 health, shared among your units that hit it. Capturing a city fully heals your military units within 2 tiles.', strengthIcon: 'mark-heal' },
+      { price: 'Settlers and non-military buildings cost 50% more Production.', priceDetail: 'Settlers and non-military buildings cost 50% more Production. Walls, Walls upgrades and the Agoge cost the normal price.', priceIcon: 'unit-settler' },
     ],
     counteredBy: 'Hold behind Walls and deny them kills, so their wounded units stay wounded.',
   },
@@ -209,11 +211,11 @@ export const FACTION_SHEETS: Record<Faction, FactionSheet> = {
     lore: 'Classical Athens was known for civic debate and learning. In play, Athenian scholarship brings quick discoveries at a cost to its treasury.',
     ratings: { aggression: 1, economy: 4, complexity: 2 },
     pairs: [
-      { strength: 'Every ruin also gives you 20 Science.', price: `Your Markets give +1 Gold a turn instead of +3, at the normal ${BUILDING_STATS.Market.cost} Production.`, strengthIcon: 'ruin', priceIcon: 'building-market' },
+      { strength: 'Every ruin also gives you 20 Science.', price: 'Your Markets give +1 Gold instead of +3.', priceDetail: `Your Markets give +1 Gold a turn instead of +3, at the normal ${BUILDING_STATS.Market.cost} Production.`, strengthIcon: 'ruin', priceIcon: 'building-market' },
       { strength: 'The Lyceum replaces the Library and gives +6 Science a turn.', strengthIcon: 'building-lyceum', onCard: true },
-      { price: 'A rival that captures one of your cities gets one free technology (once per city for each rival).', priceIcon: 'ui-trend-down' },
+      { price: 'A rival that captures one of your cities gets a free technology.', priceDetail: 'A rival that captures one of your cities gets one free technology (once per city for each rival).', priceIcon: 'ui-trend-down' },
       specialRow('Athens', 'unit-peltast'),
     ],
-    counteredBy: 'Capture an Athenian city for one free technology. Each empire can earn this once per city.',
+    counteredBy: 'Capture an Athenian city for a free technology.',
   },
 };

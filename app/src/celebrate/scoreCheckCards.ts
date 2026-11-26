@@ -74,7 +74,7 @@ export function scoreCheckFor(view: PlayerView, era: number, first: PlayerId): S
   const track: TrackSpace[] = Array.from({ length: target + 1 }, (_, vp) => ({ vp, pieces: [] }));
   for (const row of model.rows) {
     const space = track[Math.max(0, Math.min(target, row.vp))];
-    for (const m of row.members) space.pieces.push({ id: m.id, faction: m.faction, color: playerColor(m.id), name: m.name, isMine: m.isMine });
+    for (const m of row.members) space.pieces.push({ id: m.id, faction: m.faction, color: playerColor(m.id), name: empireOfPlayer(view, m.id), isMine: m.isMine });
   }
 
   const you = mine?.members.length && mine.members.length > 1 ? 'Your team' : 'You';

@@ -1,4 +1,4 @@
-import { revealSidebar } from './sidebarAssertions';
+import { newestGameState } from './autosave';
 import { test, expect } from './fixtures';
 import { endPlanning } from './turnActions';
 import { turnFlowFixture } from '../src/test/turnFlowFixture';
@@ -73,7 +73,7 @@ test('Space lasts one turn; Fortify persists and stays out of the cycle', async 
   await page.keyboard.press('Enter');
   await expect(page.locator('.city-panel')).toBeVisible();
   // Autosave is an output readback: no store injection or debug mutations.
-  const units = await page.evaluate(() => JSON.parse(JSON.parse(localStorage.getItem('legatum.autosave.v1')!).game).units);
+  const units = (await newestGameState<any>(page)).units;
   expect(units['0'].standing_order).toBeUndefined();
   expect(units['4'].standing_order).toBe('Sleep');
 });
@@ -102,17 +102,19 @@ test('Return ends the turn when all decisions are handled, and focused controls 
 });
 
 test('mouse Build advances to research and the city remains reachable from Cities', async ({ page }) => {
-  await revealSidebar(page, 'turn-more');
-  await page.locator('.city-list summary').click();
-  const city = page.locator('.city-list-items button').first();
-  await city.click();
+  // Cities in the top bar lists every city; a row goes to it.
+  const openCity = async () => {
+    await page.getByTestId('cities-button').click();
+    await page.locator('[data-testid="city-row"] .co-city').first().click();
+  };
+  await openCity();
   const build = page.getByRole('button', { name: 'Build Spearman', exact: true });
   await build.click();
   await expect(page.locator('.city-panel')).toHaveCount(0);
   await expect(page.locator('dialog.tech-modal')).toBeVisible();
   await expect(page.getByTestId('turn-number')).toHaveText('2');
   await page.keyboard.press('Escape');
-  await city.click();
+  await openCity();
   await expect(build).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Queue Spearman', exact: true })).toBeVisible();
   await expect(page.getByRole('button', { name: /^Buy Spearman for/ })).toBeVisible();
@@ -129,7 +131,7 @@ test('Fortify heals while the unit rests and stays in effect at full HP, out of 
   await expect(page.locator('.seatbar .cta')).toContainText('Choose production');
   await endPlanning(page);
   await expect(page.getByTestId('turn-number')).toHaveText('4');
-  const units = await page.evaluate(() => JSON.parse(JSON.parse(localStorage.getItem('legatum.autosave.v1')!).game).units);
+  const units = (await newestGameState<any>(page)).units;
   expect(units['0'].hp).toBe(100);
   expect(units['0'].standing_order).toBe('Sleep');
   await page.locator('[data-game-map]').focus();

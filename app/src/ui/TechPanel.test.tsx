@@ -16,6 +16,8 @@ beforeEach(() => {
   container = document.body.appendChild(document.createElement('div'));
   root = createRoot(container);
   useGame.setState(useGame.getInitialState(), true);
+  // These tests cover the This era cards; the tech tree has its own tests (TechTree.test.tsx).
+  localStorage.setItem('legatum.research-view.v1', 'era');
 });
 afterEach(() => {
   act(() => root.unmount());
@@ -154,14 +156,15 @@ it('reordering the queue is an obvious control and moves the forecast with it', 
   expect(arrivals()[0]).not.toBe(before[0]);
 });
 
-it('the top bar names the era and opens research', async () => {
+it('the top bar names the era, while Research opens the screen', async () => {
   const view = await game();
   useGame.setState({ techOpen: false });
   render(createElement(TopBar));
-  const chip = container.querySelector<HTMLButtonElement>('[data-testid="era-chip"]')!;
+  const chip = container.querySelector<HTMLElement>('[data-testid="era-chip"]')!;
   expect(chip.textContent).toContain(view.research.era_name);
   expect(chip.textContent).toContain(`${view.research.era_known}/${view.research.era_total}`);
-  click(chip);
+  expect(chip.tagName).toBe('SPAN');
+  click(container.querySelector<HTMLButtonElement>('.research-chip')!);
   expect(useGame.getState().techOpen).toBe(true);
 });
 

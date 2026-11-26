@@ -3,7 +3,7 @@ import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 import { coreFixture } from '../src/test/coreFixture';
 import { progressFixture } from '../src/test/progressFixture';
-import { stageHoldings } from './vpStage';
+import { stageHold, stageHoldings } from './vpStage';
 
 async function loadSave(page: Page, game: string, turn: number) {
   await page.addInitScript(({ game, turn }) => {
@@ -21,6 +21,8 @@ for (const [width, height] of [[1000, 600], [1440, 900]] as const) {
     await page.setViewportSize({ width, height });
     await loadSave(page, coreFixture(progressFixture().fixture), 2);
     await stageHoldings(page);
+    // The race headline exists only while a team holds its target: stage a rival's hold so it shows.
+    await stageHold(page);
     // The sidebar has one scroll area, with the race headline pinned above its details.
     const race = page.locator('.panel.vp');
     const scroll = page.locator('.right-sidebar .sidebar-scroll');
@@ -58,7 +60,7 @@ for (const [width, height] of [[1000, 600], [1440, 900]] as const) {
     const bounds = await Promise.all([last.boundingBox(), body.boundingBox()]);
     expect(bounds[0]!.y + bounds[0]!.height).toBeLessThanOrEqual(bounds[1]!.y + bounds[1]!.height + 1);
     // Close is in view, and Escape gives the map back.
-    await expect(sheet.getByRole('button', { name: 'Close objectives' })).toBeInViewport();
+    await expect(sheet.getByRole('button', { name: 'Close score ledger' })).toBeInViewport();
     await page.keyboard.press('Escape');
     await expect(sheet).toHaveCount(0);
   });

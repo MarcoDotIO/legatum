@@ -632,6 +632,8 @@ fn rome_finishes_a_siege_its_first_promotions_were_earned_in() {
     let siege = |view: &PlayerView, finish: i32| {
         let mut p = rome_planner(view);
         p.decisions.roman_finish_siege = finish;
+        // `rome_found_now` has its own wounded-veteran rule; off, to test this gene alone.
+        p.decisions.rome_found_now = 0;
         p.campaigns.active = Some(crate::campaign::Campaign {
             target: legatum_core::CityId(9),
             start_turn: 1,

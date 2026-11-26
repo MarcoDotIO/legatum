@@ -1,7 +1,7 @@
 import { useId } from 'react';
 import type { ReactNode } from 'react';
 import type { Breakdown, Faction, PlayerView, Resource, UnitKind, UnitView } from '../types';
-import { builtInSiege, MONGOL_SIEGE_REASON, itemName, SIEGE_RULE, SIEGE_USES_IRON, TECH_NAME, UNIT_STATS, unitClass, unitStatsFor } from '../data';
+import { builtInSiege, MONGOL_SIEGE_REASON, itemName, SIEGE_HEADLINE, SIEGE_USES_IRON, TECH_NAME, UNIT_STATS, unitClass, unitStatsFor } from '../data';
 import { siegeTier } from '../combat';
 import { aWorks, fixClause, supplyPerMine, withArticle } from '../resources';
 import { strengthBonus } from '../promotion';
@@ -73,19 +73,19 @@ export function UnitImprovements({ unit, view, check, primary, pending, gold, si
   return <section className="unit-improve" aria-label="Improve unit">
     <h3><Star size={10} /> Improve <span /></h3>
     {check && <ImproveRow label={`Upgrade to ${itemName({ kind: 'Unit', unit: check.to }, faction)}`}
-      effect={`${upgradeGain(unit, faction, check.to)}${castrumHeal ? ` · +${castrumHeal} HP from Castrum` : ''}`} icon="ui-trend-up" hotkey="U" cost={check.cost} resource={check.need}
+      effect={`${upgradeGain(unit, faction, check.to)}${castrumHeal ? ` · +${castrumHeal} health from Castrum` : ''}`} icon="ui-trend-up" hotkey="U" cost={check.cost} resource={check.need}
       primary={primary === 'upgrade'} active={pending === 'UpgradeUnit'} blocked={!!check.blocker} reasonId={upgradeReasonId} onClick={upgradeSelected}
       tip={<>
         <p>{unitStatsFor(faction, check.to).moves} moves · {unitStatsFor(faction, check.to).strength} strength before promotions{unitStatsFor(faction, check.to).ranged > 0 && ` · ${unitStatsFor(faction, check.to).ranged} ranged · range ${unitStatsFor(faction, check.to).range}`}.</p>
-        <p>{castrumHeal ? `Castrum restores ${castrumHeal} HP, to ${unit.hp + castrumHeal}/100, once for this upgrade order.` : 'Keeps its HP and promotions.'} Can act again next turn.</p>
+        <p>{castrumHeal ? `Castrum restores ${castrumHeal} health, to ${unit.hp + castrumHeal}/100, once for this upgrade order.` : 'Keeps its health and promotions.'} Can act again next turn.</p>
         {unit.siege && builtInSiege(check.to) && <p>Its Siege is built in from then on, so the Iron the bought Siege used is freed.</p>}
         <p>Treasury: <Amounts text={`${gold} Gold → ${gold - (check.cost ?? 0)} Gold`} />.</p>
         {unit.upgrade_breakdown && <BreakdownTable b={upgradeStepBreakdown(unit.upgrade_breakdown, unit.kind as UnitKind, unit.upgrade_steps?.length ? unit.upgrade_steps : [check.to], faction)} title="Upgrade cost" unit="Gold" plain />}
       </>} />}
-    {offer && <ImproveRow label="Siege" effect={`Ignores ${['Walls', 'Walls', 'Walls and Castles', 'Walls, Castles and Star Forts'][siegeTier(view.research.known)]}`}
+    {offer && <ImproveRow label="Siege" effect={`Covers Walls up to level ${['', 'I', 'II', 'III'][siegeTier(view.research.known)]}`}
       icon="ui-siege" cost={offer.price.total} resource={SIEGE_USES_IRON ? 'Iron' : null}
       closed={siegeClosed} primary={primary === 'siege'} active={pending === 'UpgradeSiege'} blocked={!!siegeBlocker} reasonId={siegeClosed ? `${id}-siege-closed` : siegeReasonId} onClick={siegeSelected}
-      tip={<><p>{SIEGE_RULE} The unit rests this turn.</p><p>{SIEGE_USES_IRON && 'Uses 1 Iron supply while it exists.'}</p>
+      tip={<><p>{SIEGE_HEADLINE} The unit rests this turn.</p><p>{SIEGE_USES_IRON && 'Uses 1 Iron supply while it exists.'}</p>
         <p>Treasury: <Amounts text={`${siegeGold} Gold → ${siegeGold - offer.price.total} Gold`} />.</p>
         <BreakdownTable b={offer.price} title="Siege cost" unit="Gold" /></>} />}
     {upgradeChecklist && check && <p className="act-reason improve-reason" id={upgradeReasonId}>

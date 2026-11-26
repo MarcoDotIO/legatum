@@ -1,3 +1,4 @@
+import { newestAutosave } from './autosave';
 import type { Page } from '@playwright/test';
 import { test, expect } from './fixtures';
 
@@ -6,7 +7,7 @@ import { test, expect } from './fixtures';
 // a browser that remembers Training from an older build opens on Hard.
 test.use({ viewport: { width: 1000, height: 600 } });
 
-const level = (page: Page) => page.getByRole('radiogroup', { name: 'AI level (all AI empires)', exact: true });
+const level = (page: Page) => page.getByRole('radiogroup', { name: 'AI level', exact: true });
 
 async function openLobby(page: Page, url: string) {
   await page.goto(url);
@@ -17,11 +18,7 @@ async function openLobby(page: Page, url: string) {
 async function expectThreeLevels(page: Page) {
   await expect(level(page).getByRole('radio')).toHaveText([/^Easy/, /^Normal/, /^Hard/]);
   await expect(page.getByTestId('ai-level-note')).toHaveCount(0);
-  const seats = page.getByRole('combobox', { name: /^Seat \d+ AI level$/ });
-  expect(await seats.count()).toBeGreaterThanOrEqual(3);
-  for (const seat of await seats.all()) {
-    await expect(seat.getByRole('option')).toHaveText(['Easy', 'Normal', 'Hard']);
-  }
+  await expect(page.getByRole('combobox', { name: /^Seat \d+ AI level$/ })).toHaveCount(0);
   await expect(level(page).getByRole('radio', { name: /Training/ })).toHaveCount(0);
 }
 
@@ -42,11 +39,11 @@ for (const stored of ['Training', 'HardSearch']) {
     await openLobby(page, '/?client=wasm');
     await expectThreeLevels(page);
     await expect(level(page).getByRole('radio', { name: /^Hard/ })).toBeChecked();
-    for (const seat of await page.getByRole('combobox', { name: /^Seat \d+ AI level$/ }).all()) await expect(seat).toHaveValue('Hard');
+    await expect(page.getByRole('combobox', { name: /^Seat \d+ AI level$/ })).toHaveCount(0);
     await page.getByRole('radiogroup', { name: 'Map size', exact: true }).getByRole('radio', { name: /^Small/ }).click();
     await page.getByRole('button', { name: /^Start game/ }).click();
     await expect(page.getByTestId('turn-number')).toHaveText('1');
-    const saved = await page.evaluate(() => JSON.parse(localStorage.getItem('legatum.autosave.v1') ?? 'null'));
+    const saved = (await newestAutosave(page))!;
     expect(JSON.parse(saved.game).setup.players.filter((p: { search?: boolean }) => p.search)).toHaveLength(0);
     expect(errors).toEqual([]);
   });

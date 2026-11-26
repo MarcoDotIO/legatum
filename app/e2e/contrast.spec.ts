@@ -46,7 +46,7 @@ const GALLERY = `
   <div class="title-menu" style="animation:none"><div class="title-actions">
     <button class="btn big primary">Single Player<span class="btn-sub">1 to 7 AI empires</span></button>
     <button class="btn big primary" disabled>Single Player<span class="btn-sub">1 to 7 AI empires</span></button>
-    <button class="btn big">Multiplayer<span class="btn-sub">Hot seat or network</span></button>
+    <button class="btn big">Multiplayer<span class="btn-sub">Host or join online</span></button>
     <button class="btn big" disabled>Continue<span class="btn-sub">No autosave yet</span></button>
     <button class="btn big quiet">Load Game…</button>
     <button class="btn big quiet" disabled>Quit</button>
@@ -178,8 +178,7 @@ test(`${look}: game screen controls keep AA label contrast in every state`, asyn
   await chooseCapitalProduction(page);
   await endPlanning(page);
   await expect(page.getByTestId('turn-number')).toHaveText('2');
-  await page.getByRole('button', { name: 'Menu', exact: true }).click();
-  await page.getByRole('button', { name: 'Turn report (L)', exact: true }).click();
+  await page.locator('button.last-turn').first().click();
   await expect(page.getByRole('complementary', { name: 'Turn report' })).toBeVisible();
   readings.push(...await auditContrast(page, 'turn report'));
   await page.getByRole('button', { name: 'Close report', exact: true }).click();
@@ -189,15 +188,15 @@ test(`${look}: game screen controls keep AA label contrast in every state`, asyn
   await expect(page.locator('.research-queue li[data-tech="Irrigation"]')).toHaveCount(1);
   readings.push(...await auditContrast(page, 'research chosen'));
   await page.getByRole('button', { name: 'Close research', exact: true }).click();
-  // The diplomacy inbox (no AI offers alliances this early; its actions still show).
-  await revealSidebar(page, 'standings');
+  // The diplomacy inbox (no AI offers alliances this early). On turn 2 nobody has been met, so the
+  // empires list is the one "not met yet" line (unmet empires are hidden, as in the rivals table).
   await page.getByRole('button', { name: /^Diplomacy( \(\d+\))?$/ }).click();
   const inbox = page.getByRole('complementary', { name: 'Diplomacy', exact: true });
   await expect(inbox).toBeVisible();
   // Audit only what the player sees once it settles: no story card over the inbox and no
   // layout still moving.
   await expect(page.locator('.moment-card')).toHaveCount(0);
-  const firstAction = inbox.locator('.diplomacy-action button').first();
+  const firstAction = inbox.locator('.diplomacy-action button, [data-testid=unmet-empires]').first();
   await expect.poll(async () => {
     const before = JSON.stringify(await firstAction.boundingBox());
     await page.waitForTimeout(250);

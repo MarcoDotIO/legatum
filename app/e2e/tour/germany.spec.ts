@@ -144,7 +144,7 @@ for (const size of SIZES) test.describe(`germany ${size.name}`, () => {
     }
   });
 
-  test('the Guide and the peoples chapter for Germany', async ({ page }) => {
+  test('How to Play and the peoples chapter for Germany', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });

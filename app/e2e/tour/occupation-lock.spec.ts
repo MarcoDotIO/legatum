@@ -1,5 +1,5 @@
 // The occupation lock experiment as the player meets it (UI review, rules 27): the capture forecast that warns the capturer will be
-// locked, the locked unit's panel, the frozen city's panel and pending list, and the World Ages ledger opened from "See how you win".
+// locked, the locked unit's panel, the frozen city's panel and pending list, and the World Ages ledger opened from "Score ledger".
 // Run alone: `npx playwright test e2e/tour/occupation-lock`.
 import type { Page } from '@playwright/test';
 import { test, expect } from '../fixtures';

@@ -27,6 +27,7 @@
 //
 // The saves are copies of the user's autosaves (crates/wasm/tests/fixtures/saves/p892-*.legatum). The check: after zooms,
 // a pan and a turn, the cache fills every visible chunk, goes quiet, and the map equals the same map drawn fresh.
+import { newestAutosave } from './autosave';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import type { Browser, Page } from '@playwright/test';
@@ -175,7 +176,7 @@ for (const { name, sizes } of SAVES) {
       const cams = [0.9, 1.4, 0.6];
       const live: string[] = [];
       for (const [k, c] of targets.entries()) { await camTo(page, c, cams[k]); await page.mouse.move(2, 2); await settle(page); live.push(await mapPng(page)); }
-      const autosave = await page.evaluate(() => localStorage.getItem('legatum.autosave.v1'));
+      const autosave = JSON.stringify(await newestAutosave(page));
 
       const context = await browser.newContext({ baseURL: serverURL, viewport: { width, height }, deviceScaleFactor: 2 });
       const fresh = await context.newPage();

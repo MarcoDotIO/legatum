@@ -1,13 +1,12 @@
 // The victory points dialog and the top-bar entry point. The ledger renders the score.
 import { useEffect, useRef } from 'react';
 import { useGame } from '../store';
-import { Icon } from './bits';
 import { closeTips } from './Tip';
 import { buildVpModel } from '../vpModel';
 import { ScoreLedger } from './ScoreLedger';
 import './objectiveSheet.css';
 
-/** The sheet itself: a modal dialog over the map, opened from the VP chip or the race panel. */
+/** The sheet itself: a modal dialog over the map, opened from the race panel. */
 export function ObjectiveSheet() {
   const view = useGame((s) => (s.views ? s.views[s.seat] : null));
   const open = useGame((s) => s.vpExpanded);
@@ -47,15 +46,4 @@ export function ObjectiveSheet() {
       <ScoreLedger model={model} turn={view.turn} close={close} closeRef={closeButton} />
     </dialog>
   );
-}
-
-/** The top bar's entry: your VP, the leading rival's crest and VP; one click opens the sheet. */
-export function VpChip() {
-  const view = useGame((s) => (s.views ? s.views[s.seat] : null));
-  const open = useGame((s) => s.vpExpanded);
-  const set = useGame((s) => s.set);
-  if (!view) return null;
-  return <button className="tb-nav vh-chip" aria-label="Score ledger" aria-haspopup="dialog" aria-expanded={open} title="Score ledger" onClick={() => set({ vpExpanded: !open })}>
-    <Icon name="vp" size={14} className="vh-chip-icon" /> <span className="vh-chip-label">Score ledger</span>
-  </button>;
 }

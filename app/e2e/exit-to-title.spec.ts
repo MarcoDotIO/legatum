@@ -14,6 +14,7 @@
 // reproduce that on any engine (including Chromium and the Linux WebKit container, which do focus
 // buttons on click) by cancelling mousedown's default focus change and blurring the focused element.
 import { test, expect } from './fixtures';
+import { endPlanning } from './turnActions';
 
 async function openGameMenuAndExit(page: import('@playwright/test').Page) {
   await page.getByRole('button', { name: 'Menu', exact: true }).click();
@@ -30,17 +31,22 @@ test('normal game: Exit to title returns to the title screen', async ({ page }) 
   await expect(page.getByRole('heading', { name: 'Legatum', exact: true })).toBeVisible();
   // Exiting keeps the autosave: Resume shows the game was kept, not lost.
   await expect(page.getByRole('button', { name: /^Resume/ })).toBeVisible();
-});
-
-test('scenario: Exit to title returns to the title screen', async ({ page }) => {
-  await page.goto('/?client=wasm');
-  await page.getByRole('button', { name: 'Scenarios', exact: true }).click();
-  await page.getByRole('option', { name: /Nicaea Strike/ }).click();
-  await page.getByRole('button', { name: /^Begin Sparta's Nicaea Strike/ }).click();
-  await expect(page.getByTestId('scenario-bar')).toBeVisible();
-
+  // Resume and Continue would open the same game, so only Resume shows, naming the people played.
+  await expect(page.getByRole('button', { name: /^Continue/ })).toHaveCount(0);
+  await expect(page.locator('.title-resume .btn-sub')).not.toContainText('Player 1');
+  // After a turn is autosaved, the autosave is still this game: Continue stays hidden.
+  await page.getByRole('button', { name: /^Resume/ }).click();
+  await endPlanning(page);
+  await expect(page.getByTestId('turn-number')).toHaveText('2');
   await openGameMenuAndExit(page);
-  await expect(page.getByRole('heading', { name: 'Legatum', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Resume/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: /^Continue/ })).toHaveCount(0);
+  // A fresh page has no open game: Continue opens the autosave and names the people, not "Player 1".
+  await page.reload();
+  const cont = page.getByRole('button', { name: /^Continue/ });
+  await expect(cont).toBeVisible();
+  await expect(cont).not.toContainText('Player 1');
+  await expect(page.getByRole('button', { name: /^Resume/ })).toHaveCount(0);
 });
 
 // Safari/WKWebView: pressing a <button> does not focus it. Mousedown blurs the focused element

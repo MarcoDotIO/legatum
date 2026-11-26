@@ -1,11 +1,11 @@
-//! `legatum-sim card-loop <card>`: score a Lab card with Hard, check a designer seed, search a
+//! `legatum-sim card-loop <card>`: score an AI measurement position with Hard, search a
 //! line of order overrides on top of Hard, and report where the line first departs from Hard.
 //!
 //! A line is closed-loop: each turn the seat starts from Hard's own orders and the line replaces
 //! the orders of the units, cities and empire actions it names. An override that the engine
 //! refuses in this position (`validate_orders`) falls back to Hard's orders, so one line can be
-//! played on any dice. Everything runs on the same `Session` and `ActiveScenario` the app and
-//! `legatum-sim scenario` use; nothing here models a rule.
+//! played on any dice. Everything runs on the same `Session` and `ActiveScenario` as
+//! `legatum-sim scenario`; nothing here models a rule.
 use clap::Parser;
 use legatum_ai::Brain as _;
 use legatum_core::scenario::{Outcome, Target, TargetKind};
@@ -21,14 +21,10 @@ use std::path::{Path, PathBuf};
 #[derive(Parser)]
 #[command(
     name = "legatum-sim card-loop",
-    about = "Score a Lab card with Hard and search an order line that beats it"
+    about = "Score a position with Hard and search an order line that beats it"
 )]
 struct Cli {
     card: PathBuf,
-    /// A designer run (`legatum-scenario-run`) to seed the search. Refused unless it was played
-    /// on this card's revision and state hash.
-    #[arg(long)]
-    run: Option<PathBuf>,
     #[arg(long)]
     out: PathBuf,
     /// Only measure Hard on the fresh seeds (no search).
@@ -81,45 +77,6 @@ pub fn search_refusal(split_json: &str, card: &str) -> Result<Option<String>, St
     })
 }
 
-#[derive(Deserialize)]
-struct RecordedRun {
-    scenario: RecordedCard,
-    turns: Vec<RecordedTurn>,
-    #[serde(default)]
-    score: Option<i32>,
-}
-#[derive(Deserialize)]
-struct RecordedCard {
-    id: String,
-    revision: u32,
-    state_hash: String,
-}
-#[derive(Deserialize)]
-struct RecordedTurn {
-    turn: u32,
-    orders: Vec<Order>,
-}
-
-/// Why a designer run cannot seed a search on this card, in words for the report; None when its
-/// card id, revision and state hash all match.
-pub fn seed_mismatch(
-    file: &ScenarioFile,
-    run_id: &str,
-    run_revision: u32,
-    run_hash: &str,
-) -> Option<String> {
-    if file.id != run_id {
-        return Some(format!("the run is for card {run_id}, not {}", file.id));
-    }
-    if file.revision != run_revision || file.state.hash != run_hash {
-        return Some(format!(
-            "the run was played on {} revision {run_revision} (state {run_hash}), but the card is now revision {} (state {}). Its orders were given in a different position, so they cannot seed a search on this card. Search without --run, or have him play revision {}",
-            file.id, file.revision, file.state.hash, file.revision
-        ));
-    }
-    None
-}
-
 /// What the line does with one actor (a unit, a city, research or diplomacy).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "kind")]
@@ -153,11 +110,9 @@ pub struct Override {
     pub choice: Choice,
 }
 
-/// The designer's orders (whole seat, by turn) plus overrides on top of Hard.
+/// Order overrides on top of Hard.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Line {
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub designer: BTreeMap<u32, Vec<Order>>,
     pub overrides: Vec<Override>,
 }
 
@@ -184,6 +139,7 @@ pub fn actor_key(order: &Order) -> String {
         | Order::Raze { city } => format!("city {}", city.0),
         Order::SetResearch { .. }
         | Order::SetResearchQueue { .. }
+        | Order::SetResearchGoal { .. }
         | Order::SetScienceConversion { .. } => "research".into(),
         o if legatum_core::diplomacy::is_diplomatic(o) => "diplomacy".into(),
         _ => "empire".into(),
@@ -278,8 +234,7 @@ fn choice_orders(
     }
 }
 
-/// The seat's orders this turn: Hard's, then the designer's for the turn, then the line's
-/// overrides. Returns the orders and how many line orders the engine refused here.
+/// The seat's orders this turn: Hard's with the line's overrides. Returns the orders and how many line orders the engine refused here.
 pub fn seat_orders(
     state: &GameState,
     seat: PlayerId,
@@ -290,21 +245,6 @@ pub fn seat_orders(
     let hard_groups = grouped(hard);
     let mut current = hard_groups.clone();
     let mut refused = 0;
-    if let Some(base) = line.designer.get(&turn) {
-        // An actor Hard orders but the designer did not gets no new order.
-        current = hard_groups
-            .iter()
-            .map(|(a, _)| (a.clone(), vec![]))
-            .collect();
-        for (actor, orders) in grouped(base) {
-            if valid(state, seat, &orders) {
-                set(&mut current, &actor, orders);
-            } else {
-                refused += 1;
-                set(&mut current, &actor, get(&hard_groups, &actor).to_vec());
-            }
-        }
-    }
     let mut active: BTreeMap<&str, &Override> = BTreeMap::new();
     for o in &line.overrides {
         let applies = if o.choice.sticky() {
@@ -372,7 +312,7 @@ enum Keep {
 }
 
 fn start_state(file: &ScenarioFile, index: u32) -> Result<GameState, String> {
-    let mut start = file.prepare(false)?;
+    let mut start = file.prepare()?;
     start.setup.seed = crate::scenario::run_seed(start.setup.seed, index);
     start.setup.players[file.seat.0 as usize].difficulty = AiDifficulty::Hard;
     Ok(start)
@@ -535,7 +475,7 @@ fn is_fighter(state: &GameState, seat: PlayerId, unit: UnitId) -> Option<Hex> {
 }
 
 /// Every alternative the search tries on one turn: no new order per actor, the battle search's
-/// orders, the designer-style breach on each target city, and marching on or garrisoning the
+/// orders, the breach on each target city, and marching on or garrisoning the
 /// card's target cities.
 fn candidates(
     file: &ScenarioFile,
@@ -838,7 +778,7 @@ fn divergences(
                 rest.overrides.retain(|x| x != o);
                 (o.choice.label(), measure(file, &rest, train)?.mean())
             }
-            None => ("designer's order".to_string(), best.mean()),
+            None => ("Hard order".to_string(), best.mean()),
         };
         let unit = unit_of(actor);
         let hard_passes = unit
@@ -907,23 +847,6 @@ fn run(cli: &Cli) -> Result<(), String> {
             return Err(format!("Refusing to search: {why}."));
         }
     }
-    let mut seed = Line::default();
-    let mut designer_score = None;
-    if let Some(path) = &cli.run {
-        let run: RecordedRun =
-            serde_json::from_str(&std::fs::read_to_string(path).map_err(|e| e.to_string())?)
-                .map_err(|e| format!("{}: {e}", path.display()))?;
-        if let Some(why) = seed_mismatch(
-            &file,
-            &run.scenario.id,
-            run.scenario.revision,
-            &run.scenario.state_hash,
-        ) {
-            return Err(format!("Refusing designer run {}: {why}.", path.display()));
-        }
-        seed.designer = run.turns.into_iter().map(|t| (t.turn, t.orders)).collect();
-        designer_score = run.score;
-    }
     let fresh: Vec<u32> = (FRESH_START..FRESH_START + cli.fresh).collect();
     let train: Vec<u32> = (1..=cli.train_seeds).collect();
     std::fs::create_dir_all(&cli.out).map_err(|e| e.to_string())?;
@@ -946,12 +869,9 @@ fn run(cli: &Cli) -> Result<(), String> {
         );
         return Ok(());
     }
-    let designer = (!seed.designer.is_empty())
-        .then(|| measure(&file, &seed, &fresh))
-        .transpose()?;
     let searched = search(
         &file,
-        seed.clone(),
+        Line::default(),
         &train,
         cli.max_evals,
         cli.passes,
@@ -963,8 +883,6 @@ fn run(cli: &Cli) -> Result<(), String> {
     let md = report(
         &file,
         cli,
-        designer_score,
-        designer.as_ref(),
         &hard,
         &searched,
         &line_fresh,
@@ -974,12 +892,6 @@ fn run(cli: &Cli) -> Result<(), String> {
     );
     std::fs::write(cli.out.join("report.md"), md).map_err(|e| e.to_string())?;
     let obj = result.as_object_mut().expect("object");
-    obj.insert(
-        "designer_seed".into(),
-        serde_json::json!(cli.run.as_ref().map(|p| p.display().to_string())),
-    );
-    obj.insert("designer_score".into(), serde_json::json!(designer_score));
-    obj.insert("designer_fresh".into(), serde_json::json!(designer));
     obj.insert("train_seed_indices".into(), serde_json::json!(train));
     obj.insert("evaluated".into(), serde_json::json!(searched.evaluated));
     obj.insert("accepted".into(), serde_json::json!(searched.accepted));
@@ -1021,8 +933,6 @@ fn write_json(path: &Path, value: &serde_json::Value) -> Result<(), String> {
 fn report(
     file: &ScenarioFile,
     cli: &Cli,
-    designer_score: Option<i32>,
-    designer: Option<&Measure>,
     hard: &Measure,
     searched: &Searched,
     line: &Measure,
@@ -1041,27 +951,10 @@ fn report(
         FRESH_START + cli.fresh - 1,
         cli.train_seeds
     );
-    match (&cli.run, designer_score) {
-        (Some(p), score) => writeln!(
-            out,
-            "Seed: the designer's run `{}` (same revision and state hash; his score {}).\n",
-            p.file_name().map_or_else(String::new, |n| n.to_string_lossy().into_owned()),
-            score.map_or("unknown".into(), |s| s.to_string())
-        )
-        .unwrap(),
-        (None, _) => out.push_str(
-            "Seed: none. The search starts from Hard's own orders, so this is not a kill check on his line.\n\n",
-        ),
-    }
     out.push_str(
         "| Line | Wins | Mean card score | Runs with refused orders |\n|---|---:|---:|---:|\n",
     );
-    let mut rows = vec![("Hard", hard)];
-    if let Some(d) = designer {
-        rows.push(("Designer's orders (fresh dice)", d));
-    }
-    rows.push(("Searched line", line));
-    for (name, m) in rows {
+    for (name, m) in [("Hard", hard), ("Searched line", line)] {
         writeln!(
             out,
             "| {name} | {}/{} | {:.1} | {} |",
@@ -1085,10 +978,6 @@ fn report(
     .unwrap();
     if line.wins == line.n {
         out.push_str("**Result: the line wins on every held-out seed.**\n\n");
-    } else if let Some(d) = designer
-        && d.wins == 0
-    {
-        out.push_str("**Kill check:** his own orders, replayed with Hard fallback where the engine refuses them, win on none of the held-out seeds; no all-seed line was found.\n\n");
     } else {
         writeln!(
             out,
@@ -1164,15 +1053,6 @@ mod tests {
     }
 
     #[test]
-    fn mismatched_designer_seed_is_refused() {
-        let file = card();
-        let why = seed_mismatch(&file, &file.id, file.revision - 1, "1").unwrap();
-        assert!(why.contains("cannot seed a search"), "{why}");
-        assert!(seed_mismatch(&file, "other-card", file.revision, &file.state.hash).is_some());
-        assert!(seed_mismatch(&file, &file.id, file.revision, &file.state.hash).is_none());
-    }
-
-    #[test]
     fn held_out_and_unlisted_cards_are_not_searched() {
         let split = r#"{"train": ["a"], "held_out": ["b"]}"#;
         assert_eq!(search_refusal(split, "a").unwrap(), None);
@@ -1218,7 +1098,6 @@ mod tests {
         // An attack on an empty tile is refused and leaves Hard's orders in place.
         let unit = start.units_of(file.seat).next().unwrap().id;
         let line = Line {
-            designer: BTreeMap::new(),
             overrides: vec![Override {
                 turn: start.turn,
                 actor: format!("unit {}", unit.0),

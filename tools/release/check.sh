@@ -3,7 +3,7 @@
 # Usage: tools/release/check.sh <worktree> <log> "<label>"   e.g. "Playtest 7a" (run detached: nohup ... & disown)
 # Set RELEASE_CHECK_DRY_RUN=1 to exercise every step and its timing row without running builds or tests.
 # Steps: build sim + server (release and debug; Playwright's staging spec spawns the debug server),
-# re-record every scenario baseline, fmt, clippy, tests, WASM, tsc, vitest, app build, Playwright.
+# fmt, clippy, tests, WASM, tsc, vitest, app build, Playwright.
 # Each step logs "== name HH:MM" then "exit N"; the summary prints at the end.
 # Release is the critical path: its Cargo steps do not queue in tools/sim/build-slot.sh (Codex tasks do; the
 # inner scripts must never take a slot because build-slot is not re-entrant).
@@ -82,10 +82,7 @@ join_steps() {
 rm -f "$L.failed"
 [ -e app/node_modules ] || ln -s "$(git rev-parse --path-format=absolute --git-common-dir)/../app/node_modules" app/node_modules
 step build-sim cargo build -q --release -p legatum-sim
-for f in scenarios/*.json; do
-  s="$(basename "$f" .json)"
-  step "baseline-$s" ./target/release/legatum-sim scenario "$f" --runs 50 --difficulty hard --threads 6 --record --out docs/sim-results/scenarios
-done
+
 # fmt and clippy use the debug profile directory, the tests the release one, so they overlap without cargo lock waits.
 bg_step fmt cargo fmt --all --check
 bg_step clippy cargo clippy --workspace --all-targets -- -D warnings

@@ -34,7 +34,7 @@ For those, use the standard text of the named licence and the authors in the cra
 
 ## JavaScript packages
 
-`app/package-lock.json` names 100 packages: 8 for production and 92 development-only.
+`app/package-lock.json` names 194 packages: 9 for production and 185 development-only.
 
 Shipped in the web build:
 
@@ -42,6 +42,7 @@ Shipped in the web build:
 | --- | --- | --- |
 | `react`, `react-dom`, `scheduler` | MIT | Meta Platforms, Inc. and affiliates |
 | `zustand` | MIT | 2019 Paul Henschel |
+| `three` (three.js, the opt-in 3D map; a lazy chunk loaded only when the 3D map is switched on) | MIT | 2010-2024 three.js authors |
 | `@fontsource/cormorant` (the Cormorant typeface) | SIL Open Font License 1.1 | 2015 The Cormorant Project Authors (github.com/CatharsisFonts/Cormorant) |
 | `@fontsource/libre-franklin` (the Libre Franklin typeface) | SIL Open Font License 1.1 | 2020 The Libre Franklin Project Authors (github.com/googlefonts/Libre-Franklin) |
 
@@ -54,7 +55,7 @@ in this repository. The OFL requires the copyright notice and licence text to tr
 packages include them (`LICENSE` in each package); a distributed build must carry them too (see "Notices in
 distributed builds").
 
-Development-only tools (Vite, Vitest, Playwright, TypeScript, Testing Library, happy-dom, fake-indexeddb and their dependencies) are not distributed with the game. Their licences are MIT (75 packages in all, including
+Development-only tools (the three.js type declarations, Vite, Vitest, Playwright, TypeScript, Testing Library, happy-dom, fake-indexeddb and their dependencies) are not distributed with the game. Their licences are MIT (75 packages in all, including
 the shipped ones), MPL-2.0 (12), Apache-2.0 (8), OFL-1.1 (2, the fonts above),
 BSD-2-Clause (1), BSD-3-Clause (1) and ISC (1). The MPL-2.0 packages are `lightningcss` and its eleven platform
 binaries, pulled in by Vite, unmodified and build-time only.
@@ -71,12 +72,48 @@ Contributor Covenant 2.1 (CC BY 4.0), as it says.
 
 ## Audio
 
-All shipped music and sound effects (`app/public/audio/`, 38 files) are released under CC0 1.0 (no attribution
-required; courtesy credit is given). The per-file source, author and processing are in `app/public/audio/CREDITS.md`
-and `app/public/audio/manifest.json`: Kenney (kenney.nl: Music Jingles, RPG Audio, Impact Sounds; 34 files),
-Breviceps ("Short Choir", freesound.org; 2 files) and vitalezzz ("Eclipse Legion", opengameart.org; both music
-tracks are edits of that one work). The licence text is in `app/public/audio/licenses/CC0-1.0.txt`. The same credits
-appear in the game under How to Play → Credits.
+The shipped music and sound effects (`app/public/audio/`, 119 files) are third-party works under five licences.
+The per-file source, author and processing are in `app/public/audio/CREDITS.md` and
+`app/public/audio/manifest.json`, and the same credits appear in the game under How to Play → Credits.
+
+- **CC0 1.0** (43 files; no attribution required, courtesy credit is given): Kenney (kenney.nl: Music Jingles,
+  RPG Audio, Impact Sounds; 34 files), Breviceps ("Short Choir", freesound.org; 2 files), Bastianhallo ("Level up", freesound.org; 1 file) and vitalezzz
+  ("Eclipse Legion", opengameart.org; the title piece and the war excerpt are edits of that one work), and four Freesound recordings: qubodup ("Tanks Shooting", copied
+  from Unciv), conleec ("VHCL_S_Airplane_Prop_001.wav"), mffm ("Airliner Flyby.wav") and monotraum ("sea waves atmo.wav"), the last three as clips the ESC-50
+  dataset marks CC0 in its LICENSE file. The licence
+  text is in `app/public/audio/licenses/CC0-1.0.txt`.
+- **CC BY-SA 3.0** (41 files: 16 music tracks, 3 land sounds, 22 battle sounds): from 0 A.D., Copyright Wildfire
+  Games (https://www.wildfiregames.com/), licensed under Creative Commons Attribution-ShareAlike 3.0
+  (https://creativecommons.org/licenses/by-sa/3.0/). They were trimmed, loudness-matched and re-encoded for Legatum
+  (`tools/audio/build_0ad.py`), and the edited files stay under CC BY-SA 3.0. The licence text is in
+  `app/public/audio/licenses/CC-BY-SA-3.0.txt`. This licence covers these audio files only; it does not extend to
+  Legatum's code or art.
+- **CC BY-SA 3.0** (6 more music tracks): from Unknown Horizons (https://unknown-horizons.org/), four by Tobias
+  Escher and two by the Unknown Horizons team, licensed under Creative Commons Attribution-ShareAlike 3.0
+  (https://creativecommons.org/licenses/by-sa/3.0/; Debian's copyright file for the game: `content/*`). Trimmed,
+  loudness-matched and re-encoded (`tools/audio/build_later.py`); the edited files stay under CC BY-SA 3.0.
+- **CC BY-SA 3.0** (6 more music tracks, for the Modern and Future eras): by LupusMechanicus, from the Warzone 2100
+  community soundtracks (https://wz2100.net/; the Legacy and Aftermath albums, each with its own `license.txt` in
+  Ubuntu's `warzone2100-music` package), licensed under Creative Commons Attribution-ShareAlike 3.0
+  (https://creativecommons.org/licenses/by-sa/3.0/). Cut to the first four minutes, loudness-matched and re-encoded
+  (`tools/audio/build_later.py`); the edited files stay under CC BY-SA 3.0.
+- **GPL version 2 or later** (12 files, for sounds no CC source covered):
+  6 music tracks for the Machine Age and the World War era from The Battle for Wesnoth (https://www.wesnoth.org/),
+  by Mattias Westlund, Jeremy Nicoll, Tyler Johnson and Doug Kaufman; two musket shots by Richard Kettering (Jetrel)
+  and three cries of a falling soldier by Lari Nieminen (zookeeper), also from The Battle for Wesnoth (author and licence of each file in the game's `copyrights.csv`); and one drone
+  sound from Warzone 2100 (https://wz2100.net/; Debian's copyright file for `warzone2100-data`). Trimmed,
+  loudness-matched and re-encoded (`tools/audio/build_gpl.py`, which names each source file); the edited files stay
+  under the GPL, version 2 or later. The licence text is in `app/public/audio/licenses/GPL-2.0-or-later.txt`. The
+  GPL covers these audio files only: they are separate works that the game plays, and it does not extend to
+  Legatum's code or art.
+- **CC BY 4.0** (10 files): 8 music tracks by Alexander Zhelanov and Stian Grenborgen from FreeCol
+  (https://www.freecol.org/; Debian's copyright file for the game: `data/default/resources/music/default/*`), and
+  two Freesound recordings copied from Unciv: "uzzi_full_single" by Deganoth and "ceremonial cannon fire" by
+  DylanSmithSound. Licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/);
+  trimmed, loudness-matched and re-encoded. The licence text is in `app/public/audio/licenses/CC-BY-4.0.txt`.
+- **CC BY 3.0** (1 file): "Incoming Artillery Strike Cinematic Explosion" by EvanBoyerman (freesound.org), edited
+  by the Unciv team and for Legatum, licensed under Creative Commons Attribution 3.0
+  (https://creativecommons.org/licenses/by/3.0/). The licence text is in `app/public/audio/licenses/CC-BY-3.0.txt`.
 
 ## Art
 

@@ -30,7 +30,7 @@ then
 fi
 if [ "$dry" = 1 ]; then
   echo "nightly plan: master $master, rules v$rules"
-  echo "daily: 4096 Hard games seed 9311003; quality-gate default arm 512 salts x 8 maps; war suite 64 runs; every Scenario Lab card 50 runs; combat fixed 21 cells x 12 seeds; designer-seat score 6 tapes x 5 start turns x 48 runs (box)"
+  echo "daily: 4096 Hard games seed 9311003; quality-gate default arm 512 salts x 8 maps; war suite 64 runs; every lab-folder position 50 runs; combat fixed 21 cells x 12 seeds; designer-seat score 6 tapes x 5 start turns x 48 runs (box)"
   echo "weekly Sunday UTC: ablate.sh for all nine factions, 4096 games per arm, parallel 3; existing spot budget applies"
   exit 0
 fi
@@ -97,7 +97,7 @@ tools/cloud/remote.sh . --with-uncommitted --label nightly-labs \
   bash -c 'tools/sim/build-slot.sh -- cargo build --locked --release -p legatum-sim --bin legatum-sim --example combat_lab && python3 tools/sim/nightly_scenarios.py --binary target/release/legatum-sim --out docs/sim-results/nightly/scenario-lab-raw.json && target/release/examples/combat_lab --subset fixed --write-baseline docs/sim-results/nightly/combat-lab-raw.json'
 box_seconds=$((box_seconds + $(date +%s) - step_start))
 scenario_report="$work/docs/sim-results/nightly/scenario-lab-raw.json"
-[ -s "$scenario_report" ] || { echo "missing Scenario Lab report" >&2; exit 1; }
+[ -s "$scenario_report" ] || { echo "missing AI position report" >&2; exit 1; }
 combat_report="$work/docs/sim-results/nightly/combat-lab-raw.json"
 [ -s "$combat_report" ] || { echo "missing combat lab report" >&2; exit 1; }
 

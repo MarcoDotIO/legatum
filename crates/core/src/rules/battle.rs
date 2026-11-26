@@ -54,7 +54,12 @@ pub struct Fight {
     pub attacker_roll: i32,
     pub defender_roll: i32,
     pub damage_to_attacker: i32,
+    /// For a city: the hit at full rate (`combat::damage_to_city_hp`); its Walls bar takes
+    /// `wall_percent` of it first (`combat::city_hit`).
     pub damage_to_defender: i32,
+    /// Percent of the hit the city's Walls bar takes (`combat::wall_damage_percent`); 100 for a
+    /// unit target or an unwalled city.
+    pub wall_percent: i32,
     /// A melee hit on a unit moving away this round (G21): no fortification for it.
     pub defender_leaving: bool,
 }
@@ -283,7 +288,7 @@ fn plan_fight_inner(
                     rules,
                     state.player(c.owner).faction,
                     c.population,
-                    data::wall_tier(&c.buildings),
+                    c.wall_tier(),
                     covered,
                     c.hp,
                     state.era_of(c.owner),
@@ -308,17 +313,17 @@ fn plan_fight_inner(
         defender_strength.total,
         attacker_roll,
     );
-    let damage_to_defender = if let Target::City(c) = target {
-        combat::damage_to_city_hp(
-            combat::city_damage_percent(
-                a.kind,
-                data::wall_tier(&state.cities[&c].buildings),
+    let (damage_to_defender, wall_percent) = if let Target::City(c) = target {
+        (
+            combat::damage_to_city_hp(combat::city_damage_percent(a.kind), normal_damage),
+            combat::wall_damage_percent(
+                state.cities[&c].wall_tier(),
                 covered,
+                data::is_aircraft(a.kind),
             ),
-            normal_damage,
         )
     } else {
-        normal_damage
+        (normal_damage, 100)
     };
     let damage_to_attacker = if kind == FightKind::Ranged {
         defender_roll = 0;
@@ -341,6 +346,7 @@ fn plan_fight_inner(
         defender_roll,
         damage_to_attacker,
         damage_to_defender,
+        wall_percent,
         defender_leaving: defender_leaving && kind == FightKind::Melee,
     }
 }
@@ -433,6 +439,12 @@ pub fn carried_damage(
         let garrison_leaving = garrison.is_some_and(|g| leaving.contains(&g));
         // The front layer: the city's HP, or a garrison leaving a fallen city.
         let front_is_garrison = city.hp <= 0 && garrison_leaving;
+        // The city's front: its Walls bar, then its HP (`combat::city_hit`).
+        let mut front_walls = if front_is_garrison {
+            0
+        } else {
+            city.walls_hp()
+        };
         let mut front_hp = if city.hp > 0 {
             city.hp
         } else if front_is_garrison {
@@ -471,10 +483,17 @@ pub fn carried_damage(
             };
             let base = f.damage_to_defender;
             // The part of the hit that gets past the front layer.
-            let past = if at_front && front_hp > 0 {
-                let left = front_hp - base;
-                front_hp = left.max(0);
-                -left
+            let past = if at_front && (front_hp > 0 || front_walls > 0) {
+                let percent = if front_is_garrison {
+                    100
+                } else {
+                    f.wall_percent
+                };
+                let hit = combat::city_hit(front_walls, front_hp, base, percent);
+                front_walls -= hit.walls;
+                front_hp -= hit.hp;
+                // Hits stopped by standing Walls never reach the garrison.
+                if hit.past > 0 { hit.past } else { -1 }
             } else {
                 base
             };
@@ -566,6 +585,15 @@ pub fn soak(state: &GameState, unit: UnitId, attackers: &[UnitId], terrain: Terr
         .unwrap_or_else(|| hp * i64::from(unit_defense_on(state, u, terrain, 0).total))
 }
 
+/// Take a city's Walls down: every building of the Walls line goes, the level is 0 and the bar's
+/// damage record is cleared (breakable Walls, 2026-11-25). Used when the bar is broken and
+/// when the Mongols capture a walled city.
+pub fn destroy_walls(city: &mut crate::state::City) {
+    city.buildings.retain(|b| !data::is_walls_line(*b));
+    city.walls_level = 0;
+    city.walls_damage = 0;
+}
+
 /// A unit's force against a city (user, 2026-11-11, Lucerne): the damage its attack would deal
 /// to the city's HP at an average (100%) roll, not limited by the HP the city has left. Shots
 /// (`ranged`) and moves onto the tile alike, with the city's current defence, Walls and Siege as
@@ -578,14 +606,16 @@ pub fn city_force(state: &GameState, unit: UnitId, city: CityId, ranged: bool) -
     };
     let f = plan_fight(state, STAGE_RANGED, unit, Target::City(city), kind);
     let u = &state.units[&unit];
-    combat::damage_to_city_hp(
-        combat::city_damage_percent(
-            u.kind,
-            data::wall_tier(&state.cities[&city].buildings),
-            siege_cover(state, u),
-        ),
+    let hit = combat::damage_to_city_hp(
+        combat::city_damage_percent(u.kind),
         combat::damage(f.attacker_strength.total, f.defender_strength.total, 100),
-    )
+    );
+    // Against standing Walls the force is what the bar takes.
+    if state.cities[&city].walls_hp() > 0 {
+        hit * f.wall_percent / 100
+    } else {
+        hit
+    }
 }
 
 struct CityShot {
@@ -714,15 +744,27 @@ fn apply_stage(
     let extra: Vec<_> = shots.iter().map(|s| (s.unit, s.damage)).collect();
     let xp = promotion::combat_xp(state, fights, &extra);
     let mut unit_damage: BTreeMap<UnitId, i32> = BTreeMap::new();
-    let mut city_damage: BTreeMap<CityId, i32> = BTreeMap::new();
+    // Per city: (Walls bar, HP) as the stage's hits land in order (`combat::city_hit`), the
+    // same order `carried_damage` planned them in.
+    let mut city_front: BTreeMap<CityId, (i32, i32)> = BTreeMap::new();
+    let mut city_hits: Vec<Option<combat::CityHit>> = vec![None; fights.len()];
     for s in shots {
         *unit_damage.entry(s.unit).or_default() += s.damage;
     }
-    for f in fights {
+    for (index, f) in fights.iter().enumerate() {
         *unit_damage.entry(f.attacker).or_default() += f.damage_to_attacker;
         match f.target {
             Target::Unit(u) => *unit_damage.entry(u).or_default() += f.damage_to_defender,
-            Target::City(c) => *city_damage.entry(c).or_default() += f.damage_to_defender,
+            Target::City(c) => {
+                let front = city_front.entry(c).or_insert_with(|| {
+                    let city = &state.cities[&c];
+                    (city.walls_hp(), city.hp.max(0))
+                });
+                let hit = combat::city_hit(front.0, front.1, f.damage_to_defender, f.wall_percent);
+                front.0 -= hit.walls;
+                front.1 -= hit.hp;
+                city_hits[index] = Some(hit);
+            }
         }
     }
     for (unit, damage) in &carry.damage {
@@ -735,17 +777,24 @@ fn apply_stage(
             u.acted = true;
         }
     }
-    for (id, dmg) in &city_damage {
+    let mut breached: Vec<CityId> = Vec::new();
+    for (id, (walls, hp)) in &city_front {
         if let Some(c) = state.cities.get_mut(id) {
-            c.hp = (c.hp - dmg).max(0);
-            if *dmg > 0 {
+            let walls_before = c.walls_hp();
+            let hit = walls_before > *walls || c.hp.max(0) > *hp;
+            c.walls_damage += walls_before - walls;
+            c.hp = *hp;
+            if hit {
                 c.last_attacked_turn = Some(state.turn);
+            }
+            if walls_before > 0 && *walls == 0 {
+                breached.push(*id);
             }
         }
     }
 
     // Snapshot identities for events before anything is removed.
-    for f in fights {
+    for (index, f) in fights.iter().enumerate() {
         let a = &state.units[&f.attacker];
         let (defender, defender_hp_after) = match f.target {
             Target::Unit(d) => {
@@ -779,7 +828,10 @@ fn apply_stage(
             attacker_strength: f.attacker_strength.clone(),
             defender_strength: f.defender_strength.clone(),
             damage_to_attacker: f.damage_to_attacker,
-            damage_to_defender: f.damage_to_defender,
+            // A city reports what the hit took off its Walls bar, plus the rest of the hit at
+            // full rate (unchanged when no Walls stood).
+            damage_to_defender: city_hits[index]
+                .map_or(f.damage_to_defender, |hit| hit.walls + hit.hp + hit.past),
             attacker_roll: f.attacker_roll,
             defender_roll: f.defender_roll,
             attacker_hp_after: a.hp.max(0),
@@ -788,6 +840,21 @@ fn apply_stage(
             air_strike: data::is_aircraft(a.kind),
             meeting: f.kind == FightKind::Meeting,
             defender_leaving: f.defender_leaving,
+        });
+    }
+    // A Walls bar at 0 destroys the Walls (breakable Walls, 2026-11-25): the level is gone
+    // and the city must build Walls again from scratch.
+    for id in breached {
+        let by = fights
+            .iter()
+            .find(|f| f.target == Target::City(id))
+            .map(|f| state.units[&f.attacker].owner);
+        destroy_walls(state.cities.get_mut(&id).expect("city exists"));
+        let c = &state.cities[&id];
+        events.push(Event::WallsBreached {
+            city: id,
+            owner: c.owner,
+            by,
         });
     }
 
@@ -1090,7 +1157,7 @@ pub fn ranged_target(
         state
             .cities
             .values()
-            .any(|c| c.owner == u.owner && c.pos == u.pos && data::wall_tier(&c.buildings) > 0),
+            .any(|c| c.owner == u.owner && c.pos == u.pos && c.wall_tier() > 0),
         u.pos,
         target,
         |h| state.map.get(h).map(|t| t.terrain),
@@ -1293,7 +1360,7 @@ pub fn resolve_ranged(
                 state.player(city.owner).faction,
                 city.population,
                 data::has_building(&city.buildings, BuildingKind::Walls),
-                data::fort_tier(&city.buildings),
+                city.wall_tier().saturating_sub(1),
                 city.hp,
                 state.era_of(city.owner),
             );
@@ -1554,7 +1621,7 @@ pub fn capture_city(
         c.buildings.remove(building);
     }
     if slight_walls {
-        c.buildings.retain(|b| !data::is_walls_line(*b));
+        destroy_walls(c);
     }
     c.occupied_from = occupied_from;
     c.owner = captor;
@@ -1779,14 +1846,17 @@ mod tests {
     /// Damage the same fight deals with no Walls, for comparison.
     fn open_city_fight(s: &mut GameState, attacker: UnitId, city: CityId) -> Fight {
         let walls: Vec<BuildingKind> = s.cities[&city].buildings.iter().copied().collect();
+        let walls_level = s.cities[&city].walls_level;
         s.cities.get_mut(&city).unwrap().buildings.clear();
+        s.cities.get_mut(&city).unwrap().walls_level = 0;
         let fight = melee_fight(s, attacker, city);
         s.cities.get_mut(&city).unwrap().buildings.extend(walls);
+        s.cities.get_mut(&city).unwrap().walls_level = walls_level;
         fight
     }
 
     #[test]
-    fn walls_halve_every_attack_on_a_citys_hp_but_not_on_its_garrison() {
+    fn walls_take_half_of_an_attack_and_the_city_hp_behind_them_takes_it_in_full() {
         let mut s = game(&[0, 1]);
         let city = walled_city(&mut s, 1, hex(5, 3), 2);
         let attacker = unit(&mut s, 0, UnitKind::Spearman, hex(4, 3));
@@ -1797,14 +1867,16 @@ mod tests {
             walled.defender_strength.total,
             walled.attacker_roll,
         );
-        assert_eq!(walled.damage_to_defender, normal / 2);
+        assert_eq!(walled.damage_to_defender, normal);
+        assert_eq!(walled.wall_percent, 50);
         let shot = plan_fight(&s, 1, shooter, Target::City(city), FightKind::Ranged);
         let normal = combat::damage(
             shot.attacker_strength.total,
             shot.defender_strength.total,
             shot.attacker_roll,
         );
-        assert_eq!(shot.damage_to_defender, normal / 2);
+        assert_eq!(shot.damage_to_defender, normal);
+        assert_eq!(shot.wall_percent, 50);
 
         s.cities.get_mut(&city).unwrap().hp = 0;
         let garrison = unit(&mut s, 1, UnitKind::Spearman, hex(5, 3));
@@ -1883,7 +1955,8 @@ mod tests {
         let open = open_city_fight(&mut s, attacker, city);
         assert_eq!(covered.defender_strength, open.defender_strength);
         assert_eq!(covered.damage_to_defender, open.damage_to_defender);
-        assert!(covered.damage_to_defender > alone.damage_to_defender * 2);
+        assert_eq!(covered.wall_percent, 100);
+        assert_eq!(alone.wall_percent, 50);
         assert!(covered.defender_strength.total < alone.defender_strength.total);
     }
 
@@ -1914,16 +1987,12 @@ mod tests {
     }
 
     #[test]
-    fn an_industrial_unit_takes_a_star_fort_city_at_full_damage_without_siege() {
+    fn an_industrial_unit_covers_walls_iii_at_full_damage_without_bought_siege() {
         // Designer, 2026-10-28: Siege is built in from the Industrial era, whatever the owner knows.
         let mut s = game(&[0, 1]);
         let city = walled_city(&mut s, 1, hex(5, 3), 3);
-        s.cities
-            .get_mut(&city)
-            .unwrap()
-            .buildings
-            .extend([BuildingKind::Castle, BuildingKind::StarFort]);
-        assert_eq!(data::wall_tier(&s.cities[&city].buildings), 3);
+        s.cities.get_mut(&city).unwrap().walls_level = 3;
+        assert_eq!(data::wall_tier(&s.cities[&city]), 3);
         let rifle = unit(&mut s, 0, UnitKind::Rifleman, hex(4, 3));
         assert!(!s.units[&rifle].siege, "nothing bought");
         assert_eq!(
@@ -1931,7 +2000,7 @@ mod tests {
             0,
             "no siege technology"
         );
-        assert_eq!(siege_cover(&s, &s.units[&rifle]), data::MAX_WALL_TIER);
+        assert_eq!(siege_cover(&s, &s.units[&rifle]), 4);
         let walled = melee_fight(&s, rifle, city);
         let open = open_city_fight(&mut s, rifle, city);
         assert_eq!(
@@ -1944,9 +2013,7 @@ mod tests {
                 .defender_strength
                 .parts
                 .iter()
-                .all(|(label, _)| !label.contains("Castle")
-                    && !label.contains("Star Fort")
-                    && !label.contains("Walls"))
+                .all(|(label, _)| !label.contains("Walls"))
         );
         // A Renaissance Musketman with the same (lack of) technology is halved.
         let musket = unit(&mut s, 0, UnitKind::Musketman, hex(4, 4));
@@ -1960,7 +2027,7 @@ mod tests {
         let w = f.walls.expect("a walled city");
         assert_eq!(
             (w.tier, w.covered, w.percent, w.built_in),
-            (3, 3, 100, true)
+            (3, 4, 100, true)
         );
         assert_eq!(f.defender_strength, walled.defender_strength);
     }
@@ -1979,7 +2046,6 @@ mod tests {
         s.units.get_mut(&attacker).unwrap().siege = true;
         let partial = melee_fight(&s, attacker, city);
         let walls = data::building_stats_for(Faction::India, BuildingKind::Walls).city_strength;
-        let castle = data::building_stats(BuildingKind::Castle).city_strength;
         let base = combat::city_defense_vs(
             s.setup.rule_experiments,
             Faction::India,
@@ -1989,7 +2055,8 @@ mod tests {
             s.cities[&city].hp,
             0,
         );
-        assert_eq!(partial.defender_strength.total, base.total + castle);
+        // Levels above I add to the Walls bar, not to strength.
+        assert_eq!(partial.defender_strength.total, base.total);
         let uncovered = combat::city_defense_vs(
             s.setup.rule_experiments,
             Faction::India,
@@ -1999,19 +2066,18 @@ mod tests {
             s.cities[&city].hp,
             0,
         );
-        assert_eq!(uncovered.total, base.total + walls + castle);
+        assert_eq!(uncovered.total, base.total + walls);
         let normal = combat::damage(
             partial.attacker_strength.total,
             partial.defender_strength.total,
             partial.attacker_roll,
         );
-        assert_eq!(
-            partial.damage_to_defender,
-            normal * combat::SIEGE_PARTIAL_PERCENT / 100
-        );
+        assert_eq!(partial.damage_to_defender, normal);
+        assert_eq!(partial.wall_percent, combat::SIEGE_PARTIAL_PERCENT);
         s.player_mut(PlayerId(0)).techs.insert(TechId::Machinery);
         let full = melee_fight(&s, attacker, city);
         assert_eq!(full.defender_strength.total, base.total);
+        assert_eq!(full.wall_percent, 100);
         assert_eq!(
             full.damage_to_defender,
             combat::damage(
@@ -2033,19 +2099,21 @@ mod tests {
 
     #[test]
     fn mongols_slight_the_walls_of_a_city_they_capture_and_others_keep_them() {
-        use BuildingKind::{Castle, Market, StarFort, Walls};
+        use BuildingKind::{Castle, Market, StarFort, UpgradeWalls, Walls};
         for (captor, keeps) in [(Faction::Mongols, false), (Faction::India, true)] {
             let mut s = game(&[0, 1]);
             s.player_mut(PlayerId(0)).faction = captor;
             let city_id = city(&mut s, 1, hex(5, 3), 2);
             s.cities.get_mut(&city_id).unwrap().buildings =
-                [Walls, Castle, StarFort, Market].into();
+                [Walls, UpgradeWalls, Castle, StarFort, Market].into();
+            s.cities.get_mut(&city_id).unwrap().walls_level = 3;
             let mut events = Vec::new();
             capture_city(&mut s, city_id, PlayerId(0), &mut events);
             let b = &s.cities[&city_id].buildings;
             assert_eq!(s.cities[&city_id].owner, PlayerId(0));
             assert!(b.contains(&Market), "{captor:?}");
-            for wall in [Walls, Castle, StarFort] {
+            assert_eq!(s.cities[&city_id].walls_level, if keeps { 3 } else { 0 });
+            for wall in [Walls, UpgradeWalls, Castle, StarFort] {
                 assert_eq!(b.contains(&wall), keeps, "{captor:?} {wall:?}");
             }
         }
@@ -2058,8 +2126,10 @@ mod tests {
             .insert(crate::experiments::FactionRule::MongolsNoWalls);
         let city_id = city(&mut s, 1, hex(5, 3), 2);
         s.cities.get_mut(&city_id).unwrap().buildings.insert(Walls);
+        s.cities.get_mut(&city_id).unwrap().walls_level = 1;
         capture_city(&mut s, city_id, PlayerId(0), &mut Vec::new());
         assert!(s.cities[&city_id].buildings.contains(&Walls));
+        assert_eq!(s.cities[&city_id].walls_level, 1);
     }
 
     #[test]
@@ -2327,7 +2397,7 @@ mod tests {
         for id in [target, tie, civilian] {
             s.units.get_mut(&id).unwrap().hp = 1;
         }
-        let old_hp = s.cities[&c].hp;
+        let old_walls = s.cities[&c].walls_hp();
         let mut events = Vec::new();
         resolve_ranged(&mut s, &[(PlayerId(1), target, hex(3, 3))], &mut events);
         assert!(!s.units.contains_key(&target));
@@ -2335,7 +2405,7 @@ mod tests {
         assert_eq!(s.units[&healthy].hp, 100);
         assert_eq!(s.units[&civilian].hp, 1);
         assert!(
-            s.cities[&c].hp < old_hp,
+            s.cities[&c].walls_hp() < old_walls,
             "the killed Archer still shoots from the same snapshot"
         );
         let shot: Vec<_> = events.iter().filter(|e| matches!(e, Event::Battle { attacker: crate::events::Attacker::City { city }, .. } if *city == c)).collect();

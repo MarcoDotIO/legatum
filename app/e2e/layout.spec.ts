@@ -236,7 +236,7 @@ for (const size of [{ width: 1000, height: 600 }, { width: 1440, height: 900 }])
     expect(box.x).toBeGreaterThanOrEqual(0);
     expect(box.x + box.width).toBeLessThanOrEqual(bar.x + bar.width);
     expect(blocking(await auditLayout(page, { minTarget: 24 })).filter((i) => /topbar|era-chip|research-chip/.test(i.where))).toEqual([]);
-    await chip.click();
+    await page.locator('.topbar .research-chip').click();
     const dialog = page.locator('dialog.tech-modal');
     await expect(dialog).toBeVisible();
     await page.waitForTimeout(300);

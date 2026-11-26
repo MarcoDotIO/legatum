@@ -10,7 +10,7 @@ Dependencies are taken from each crate's `Cargo.toml`. An arrow means "depends o
   hosts            app (WASM in the browser)       crates/sim   crates/analysis
                             |                           |              |
                             v                           v              v
-  shared loop       crates/wasm  (Session, saves, tapes, scenarios)  <- crates/archive
+  shared loop       crates/wasm  (Session, saves, tapes, position loading)  <- crates/archive
                          |
                          v
   brains            crates/ai    (Brain trait: PlayerView -> Orders)
@@ -102,14 +102,14 @@ The UI depends on one interface, `GameClient` in `app/src/client.ts`. Local game
 
 | Client | File | Used for |
 | --- | --- | --- |
-| WASM | `app/src/wasmClient.ts` | Single player, hot seat and scenarios. The engine runs in the page, loaded from `app/src/wasm-pkg` (built by `scripts/build-wasm.sh`). Views, validation, forecasts, saves and turn resolution are JSON strings across the WASM boundary. |
+| WASM | `app/src/wasmClient.ts` | Single player. The engine runs in the page, loaded from `app/src/wasm-pkg` (built by `scripts/build-wasm.sh`). Views, validation, forecasts, saves and turn resolution are JSON strings across the WASM boundary. |
 | Remote | `app/src/remote.ts` | Online play. The client is bound to one human seat and talks to the host's tab through the relay's room URL (`setServerBase`); `app/src/relaySocket.ts` reassembles `chunk` messages. The host's own seat uses an in-tab socket instead. |
 
 The game state lives in a Zustand store (`app/src/store.ts`); the map is drawn on a 2D canvas (`app/src/map/`, entry points `MapCanvas.tsx` and `render.ts`). Test fixtures in `app/src/test/` start from Rust-generated saves and resolve turns through WASM.
 
 **Online host.** Hosting runs in the host's browser tab. `crates/wasm/src/host` is the authoritative game: one `Session`, its staging room, seat credentials and every connected player. It has no transport and does no I/O. `app/src/net/browserHost.ts` feeds it messages and sends what it queues to the relay tunnel or to the host's own UI, and keeps the save and game histories in the browser (IndexedDB). Clients send tagged JSON messages (`crates/wasm/src/host/protocol.rs`: `Join`, `Orders`, `Ready`, `Forecast` and others). When every connected human seat is Ready, the host asks the session for AI orders, steps the turn, saves and queues per-seat views. A seat only ever receives its own view. The host contains no game rules.
 
-**Game uploads.** The hosted web build (`scripts/build-web.sh` with `LEGATUM_GAMES_URL`) uploads each game's recording every five turns and at the end (`app/src/platform/gameUpload.ts`, called from `deliver()` in `archive.ts`). The engine's `Recording::anonymized` (exposed as `Game::public_archive` in `crates/wasm/src/lib.rs`) renames every seat to its default and replays the orders to recompute the hashes; the `infra/games` Worker stores the file in a private R2 bucket and refuses any other seat name. Other builds upload nothing.
+**Game uploads.** The hosted web build (`scripts/build-web.sh` with `LEGATUM_GAMES_URL`) uploads each game's recording after each of the first five turns, then every five turns, and at the end (`app/src/platform/gameUpload.ts`, called from `deliver()` in `archive.ts`). The engine's `Recording::anonymized` (exposed as `Game::public_archive` in `crates/wasm/src/lib.rs`) renames every seat to its default and replays the orders to recompute the hashes; the `infra/games` Worker stores the file in a private R2 bucket and refuses any other seat name. An online game is uploaded by its host's tab, which takes the renamed copies from `BrowserHost::take_public_recordings` (`crates/wasm/src/host/net.rs`). Other builds upload nothing.
 
 **Online relay.** Online play (`plans/online-play.md`) adds no game code. The host's tab dials out to a Cloudflare Worker (`infra/relay`: a `Lobby` Durable Object listing rooms and one `Room` Durable Object per game) over a WebSocket tunnel (`app/src/net/tunnel.ts`). The relay pipes frames between the host's tunnel and up to 8 guests and parses none of the game messages; the host stays authoritative. Closing the host's tab ends the game; reloading it resumes from the save. Guests need the same version. The lobby screen is `app/src/screens/OnlineLobbyScreen.tsx` (`app/src/platform/relayLobby.ts`).
 
@@ -141,10 +141,10 @@ All brains implement `Brain` (`crates/ai/src/lib.rs`): `orders(&mut self, &Playe
 
 `crates/sim` builds `legatum-sim` (`src/main.rs`; `--help` lists every flag). It plays AI-only games in parallel with rayon, one game per task, using the same `Session` as the app. Typical outputs are markdown and JSON reports (win rates by faction, pacing, telemetry modules such as `hold_telemetry.rs` and `opponent_telemetry.rs`), optional order tapes (`--tape-out`) and replays. Other modes: `--determinism`, `--proxy` (a human-proxy benchmark seat), `--duel-matrix`, `--search`, `--ai-params`, `--replay` and `--tape-in`. Larger studies live in `crates/sim/examples/`, such as `hard_vs_human.rs` and `war_suite`, which the scripts in `tools/sim/` wrap.
 
-Scenarios are start states with a briefing, a measurable objective and predictions:
+Scenario files are AI measurement positions with a checked start state, objective and predictions:
 
-- **Format.** `crates/wasm/src/scenario.rs` defines the file format (a gzip and base64 encoded save, checked against a recorded hash). `crates/core/src/scenario.rs` defines objectives and scoring, which read only game state, so the app, the runner and any replay score a run identically.
-- **Files.** `scenarios/*.json` holds the training positions. `scenarios/war/*.json` holds short wars cut from recorded human games and brought forward to the current rules by `legatum-sim war-build` (`crates/sim/src/war_build.rs`).
+- **Format.** `crates/wasm/src/scenario.rs` defines the file format (a gzip and base64 encoded save, checked against a recorded hash). `crates/core/src/scenario.rs` defines objectives and scoring, which read only game state, so the runner and replays score a position identically.
+- **Files.** `scenarios/*.json` holds root-level test positions; `scenarios/lab/*.json` holds AI measurement cuts from saves. `scenarios/war/*.json` holds short wars cut from recorded human games and brought forward to the current rules by `legatum-sim war-build` (`crates/sim/src/war_build.rs`).
 - **AI baselines.** `legatum-sim scenario <file> --runs N` has the scripted AI play the scenario seat across many seeds and writes a report. The human-seat benchmark and the war suite compare AI changes against recorded human results; the methodology is in [docs/sim-results/hard-vs-human/README.md](docs/sim-results/hard-vs-human/README.md).
 
 ## Test layers
@@ -155,7 +155,7 @@ Scenarios are start states with a briefing, a measurable objective and predictio
 | Rust integration tests | `crates/*/tests/`: determinism and pins (`sim`), playtest saves and scenarios (`wasm`), the online host protocol (`wasm`), property and privacy tests (`core`), AI behaviour (`ai`) | `cargo test --workspace` |
 | TypeScript unit tests | `app/src/**/*.test.ts(x)` (Vitest, Node environment) | `cd app && npm test` |
 | WASM behavior tests | `app/src/**/*.wasm.test.ts`: core-backed fixtures and browser-facing engine APIs | `cd app && npm test` (needs `scripts/build-wasm.sh` first) |
-| Browser end-to-end | `app/e2e/*.spec.ts` (Playwright, Chromium) against the static production build and a local relay (`wrangler dev`) | `cd app && npm run e2e` |
+| Browser end-to-end | `app/e2e/*.spec.ts` (Playwright, Chromium) against the static production build and a local relay (`wrangler dev`); CI runs a smoke subset per pull request and the full suite nightly | `cd app && npm run e2e` |
 | Cross-target determinism | `scripts/wasm-tape-check.mjs`, `scripts/wasm-search-check.mjs` | see the headers of those scripts |
 
 `cargo fmt --all` and `cargo clippy --workspace --all-targets -- -D warnings` are the expected lint gates for Rust; `npm run build` type-checks the TypeScript, including the Playwright specs.

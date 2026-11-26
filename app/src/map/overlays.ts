@@ -5,6 +5,7 @@ import { useSyncExternalStore } from 'react';
 import type { PlayerView } from '../types';
 import { hexAt, neighbors, tileIndex } from '../hex';
 import { tileYields } from '../resources';
+import { WONDER_INFO } from '../wonders';
 import { playerColor } from '../theme';
 import { yieldEntries, type LensTile, type MapLens } from './lenses';
 
@@ -22,7 +23,7 @@ export const OVERLAY_LEGENDS: Record<Overlay, string> = {
 };
 /** Hover text for each toggle: what it adds, and that it stays on over any lens. */
 export const OVERLAY_HINTS: Record<Overlay, string> = {
-  yields: "Your faction's yields on every tile, over any lens. Hover or tap a tile for exact values.",
+  yields: "Your faction's yields on every tile except each city's own tile, over any lens. Hover or tap a tile for exact values.",
   resources: 'Rings every known resource and shows whose borders it is in, over any lens.',
   borders: 'Marks each empire’s land with its colour and number, over any lens. Faded tiles are out of sight; borders still show their current owner.',
 };
@@ -87,12 +88,16 @@ export function buildOverlayTiles(view: PlayerView, overlays: OverlaySet): Overl
   if (!overlays.yields && !overlays.borders) return NONE;
   const faction = view.players.find((p) => p.id === view.me)?.faction ?? 'Switzerland';
   const out: OverlayTiles = { yields: [], borders: [] };
+  // A city's own tile shows its town, not a yield cluster painted over the houses: the banner carries the city's totals
+  // and hovering the tile gives the exact values.
+  const towns = new Set(view.cities.map((c) => tileIndex(c.pos, view.width, view.height)));
   view.tiles.forEach((t, index) => {
     if (!t.explored || !t.terrain) return;
     const base = { index, faded: !t.visible };
-    if (overlays.yields) {
+    if (overlays.yields && !towns.has(index)) {
       const yields = yieldEntries(tileYields(faction, t));
-      if (yields.length) out.yields.push({ ...base, tint: '', yields });
+      const bonus = t.wonder ? WONDER_INFO[t.wonder].yield : undefined;
+      if (yields.length || bonus) out.yields.push({ ...base, tint: '', yields, ...(bonus ? { bonus } : {}) });
     }
     if (overlays.borders && t.owner !== null) {
       // A light wash with the owner's hairline; the numeral sits only on the border tiles, at normal zoom.

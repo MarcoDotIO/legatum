@@ -7,6 +7,15 @@ export async function dismissInterstitials(page: Page) {
     await page.keyboard.press('Escape');
     await expect(screen).toHaveCount(0);
   }
+  // A new Age opens with its takeover and then the score check: each is closed as a player would.
+  for (let i = 0; i < 4; i++) {
+    const age = page.locator('[data-testid="era-takeover"], [data-testid="score-check"]').first();
+    if (!(await age.isVisible())) break;
+    // The takeover's primary may open Research; "Later" (Escape) leaves it, as a player planning elsewhere would.
+    if (await age.getAttribute('data-testid') === 'era-takeover') await page.keyboard.press('Escape');
+    else await age.locator('[data-primary-action]').click();
+    await expect(age).toHaveCount(0);
+  }
 }
 
 /** A declared war is part of the turn's story; acknowledge it before using the report or dock. */

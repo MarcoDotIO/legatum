@@ -13,7 +13,6 @@
     "Agoge": "Agoge",
     "AirDefence": "Air Defence",
     "Bank": "Bank",
-    "Castle": "Castle",
     "EiffelTower": "Eiffel Tower",
     "Factory": "Factory",
     "Forge": "Forge",
@@ -31,10 +30,10 @@
     "RiceStorehouse": "Rice Storehouse",
     "Roadworks": "Roadworks",
     "RoyalArsenal": "Royal Arsenal",
-    "StarFort": "Star Fort",
     "StockExchange": "Stock Exchange",
     "Supermarket": "Supermarket",
     "University": "University",
+    "UpgradeWalls": "Upgrade Walls",
     "Walls": "Walls",
     "Workshop": "Workshop",
     "YamRelayStation": "Yam Relay Station"
@@ -72,18 +71,6 @@
       "yields": {
         "food": 0,
         "gold": 4,
-        "production": 0,
-        "science": 0
-      }
-    },
-    "Castle": {
-      "cityStrength": 5,
-      "cost": 240,
-      "requires": "Chivalry",
-      "warBuilding": true,
-      "yields": {
-        "food": 0,
-        "gold": 0,
         "production": 0,
         "science": 0
       }
@@ -292,18 +279,6 @@
         "science": 0
       }
     },
-    "StarFort": {
-      "cityStrength": 5,
-      "cost": 320,
-      "requires": "Machinery",
-      "warBuilding": true,
-      "yields": {
-        "food": 0,
-        "gold": 0,
-        "production": 0,
-        "science": 0
-      }
-    },
     "StockExchange": {
       "cityStrength": 0,
       "cost": 360,
@@ -338,6 +313,18 @@
         "gold": 0,
         "production": 0,
         "science": 4
+      }
+    },
+    "UpgradeWalls": {
+      "cityStrength": 0,
+      "cost": 240,
+      "requires": null,
+      "warBuilding": true,
+      "yields": {
+        "food": 0,
+        "gold": 0,
+        "production": 0,
+        "science": 0
       }
     },
     "Walls": {
@@ -1409,6 +1396,7 @@
   "decadence": {
     "powerWindowTurns": 50
   },
+  "defaultTurnLimit": 500,
   "earlyTankMoves": 3,
   "egyptNileBuildPercent": 100,
   "egyptNileFoodPercent": 200,
@@ -1491,18 +1479,6 @@
         "yields": {
           "food": 0,
           "gold": 4,
-          "production": 0,
-          "science": 0
-        }
-      },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
           "production": 0,
           "science": 0
         }
@@ -1711,18 +1687,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -1757,6 +1721,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -1833,18 +1809,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -2049,18 +2013,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -2095,6 +2047,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -2171,18 +2135,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -2387,18 +2339,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -2433,6 +2373,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -2509,18 +2461,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -2725,18 +2665,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -2771,6 +2699,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -2847,18 +2787,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -3063,18 +2991,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -3109,6 +3025,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -3181,18 +3109,6 @@
         "yields": {
           "food": 0,
           "gold": 4,
-          "production": 0,
-          "science": 0
-        }
-      },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
           "production": 0,
           "science": 0
         }
@@ -3401,18 +3317,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -3447,6 +3351,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -3523,18 +3439,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -3739,18 +3643,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -3785,6 +3677,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -3861,18 +3765,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -4077,18 +3969,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -4123,6 +4003,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -4199,18 +4091,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -4415,18 +4295,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -4461,6 +4329,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -4537,18 +4417,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -4753,18 +4621,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -4799,6 +4655,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -4875,18 +4743,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -5091,18 +4947,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -5137,6 +4981,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -5271,8 +5127,8 @@
       "Phalangite": "Gaesatae"
     },
     "Egypt": {
-      "Granary": "Royal Granary",
-      "Spearman": "Medjay"
+      "Archer": "Chariot Archer",
+      "Granary": "Royal Granary"
     },
     "Germany": {
       "Forge": "Ruhr Foundry",
@@ -6790,7 +6646,7 @@
       "Archer": {
         "cost": 132,
         "military": true,
-        "moves": 2,
+        "moves": 3,
         "range": 2,
         "ranged": 15,
         "requires": null,
@@ -9555,7 +9411,7 @@
     "range": 2,
     "ranged": 18
   },
-  "maxWallTier": 3,
+  "maxWallTier": 9,
   "mechanisedInfantryMoves": 3,
   "meleeVsMountedLabel": "Melee line against mounted (+40%)",
   "mongolSiegeEra": 2,
@@ -10164,12 +10020,12 @@
   "rocketArtilleryRange": 3,
   "rollMax": 120,
   "rollMin": 80,
-  "saveVersion": 57,
+  "saveVersion": 62,
   "settlerCostStep": 50,
   "siege": {
     "baseGold": 160,
     "builtInEra": 4,
-    "builtInNote": "ignores Walls, Castles and Star Forts (Industrial-era guns)",
+    "builtInNote": "covers Walls through level IV in the Industrial era, one more level in each later era",
     "usesIron": true
   },
   "signalFreeTechs": 3,
@@ -10190,6 +10046,8 @@
   },
   "spartaRetireLevel": 3,
   "specialUnitNumbers": {
+    "chariotArcherMoves": 3,
+    "chariotArcherVolleyPercent": 40,
     "eagleWarriorCost": 10,
     "eagleWarriorStrength": 4,
     "gaesataeAttack": 8,
@@ -10205,7 +10063,7 @@
     "Aztecs": "Spearman",
     "Byzantium": "Pikeman",
     "Celts": "Phalangite",
-    "Egypt": "Spearman",
+    "Egypt": "Archer",
     "Germany": "Tank",
     "India": "Knight",
     "Mongols": "Cataphract",
@@ -10247,18 +10105,6 @@
         "yields": {
           "food": 0,
           "gold": 4,
-          "production": 0,
-          "science": 0
-        }
-      },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
           "production": 0,
           "science": 0
         }
@@ -10467,18 +10313,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -10513,6 +10347,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -10589,18 +10435,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -10805,18 +10639,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -10851,6 +10673,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -10927,18 +10761,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -11143,18 +10965,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -11189,6 +10999,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -11265,18 +11087,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -11481,18 +11291,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -11527,6 +11325,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -11603,18 +11413,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -11819,18 +11617,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -11865,6 +11651,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -11941,18 +11739,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -12157,18 +11943,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -12203,6 +11977,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -12279,18 +12065,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -12495,18 +12269,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -12541,6 +12303,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -12617,18 +12391,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -12833,18 +12595,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -12879,6 +12629,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -12955,18 +12717,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -13171,18 +12921,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -13217,6 +12955,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -13293,18 +13043,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -13509,18 +13247,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -13555,6 +13281,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -13631,18 +13369,6 @@
           "science": 0
         }
       },
-      "Castle": {
-        "cityStrength": 5,
-        "cost": 240,
-        "requires": "Chivalry",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "EiffelTower": {
         "cityStrength": 0,
         "cost": 720,
@@ -13847,18 +13573,6 @@
           "science": 0
         }
       },
-      "StarFort": {
-        "cityStrength": 5,
-        "cost": 320,
-        "requires": "Machinery",
-        "warBuilding": true,
-        "yields": {
-          "food": 0,
-          "gold": 0,
-          "production": 0,
-          "science": 0
-        }
-      },
       "StockExchange": {
         "cityStrength": 0,
         "cost": 360,
@@ -13893,6 +13607,18 @@
           "gold": 0,
           "production": 0,
           "science": 4
+        }
+      },
+      "UpgradeWalls": {
+        "cityStrength": 0,
+        "cost": 240,
+        "requires": null,
+        "warBuilding": true,
+        "yields": {
+          "food": 0,
+          "gold": 0,
+          "production": 0,
+          "science": 0
         }
       },
       "Walls": {
@@ -18151,7 +17877,7 @@
       "Banking": true,
       "BronzeWorking": true,
       "Cannonry": true,
-      "Chivalry": true,
+      "Chivalry": false,
       "CodeOfLaws": true,
       "Combustion": true,
       "CompositeArmour": true,
@@ -18686,7 +18412,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -18697,14 +18423,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -18819,7 +18545,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -18830,13 +18556,13 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -18954,7 +18680,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -18965,14 +18691,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19091,7 +18817,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -19102,14 +18828,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19227,7 +18953,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles"
+        "Siege covers Walls up to level II"
       ],
       "Masonry": [],
       "MassMobilisation": [
@@ -19235,14 +18961,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19358,7 +19084,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -19369,14 +19095,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19495,7 +19221,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -19506,14 +19232,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19632,7 +19358,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -19643,14 +19369,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19769,7 +19495,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -19780,14 +19506,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -19906,7 +19632,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -19917,14 +19643,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -20043,7 +19769,7 @@
       ],
       "Machinery": [
         "Composite Archers can upgrade to Crossbowmen",
-        "Siege units now ignore Castles",
+        "Siege covers Walls up to level II",
         "+1 Production per Workshop family"
       ],
       "Masonry": [
@@ -20054,14 +19780,14 @@
       ],
       "Mathematics": [
         "Spearmen can upgrade to Phalangites",
-        "Units can buy Siege: they ignore enemy Walls"
+        "Units can buy Siege: it covers Walls level I"
       ],
       "MechanisedWarfare": [
         "Infantry can upgrade to Mechanised Infantry"
       ],
       "Metallurgy": [
         "Knights can upgrade to Cuirassiers",
-        "Siege units now ignore Star Forts"
+        "Siege covers Walls up to level III"
       ],
       "MilitaryEngineering": [
         "Upgrade Gold costs -50%"
@@ -21115,6 +20841,8 @@
     "damagePercent": 50,
     "siegePartialPercent": 75
   },
+  "wallsBaseHp": 100,
+  "wallsHpPerLevel": 50,
   "woundImmunity": {
     "Athens": [],
     "Aztecs": [],

@@ -41,9 +41,9 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: true,
-    // The bundled scenarios live at the repo root (scenarios/*.json, imported raw). node_modules is
+    // node_modules is
     // allowed by its real path: in worktrees it's a symlink to the main checkout, and fonts 403 otherwise.
-    fs: { allow: ['.', '../scenarios', realpathSync('node_modules')] },
+    fs: { allow: ['.', realpathSync('node_modules')] },
   },
   build: { target: 'es2022', outDir: 'dist', chunkSizeWarningLimit: 1500 },
   // 30 s per test and 60 s per hook: several WASM-backed tests take 4 to 10 s on a loaded machine,

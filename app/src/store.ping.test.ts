@@ -1,10 +1,11 @@
-// Team map pings: hot seat keeps them in the store, online they travel over the host's message channel, and they never
+// Team map pings travel over the host's message channel and never
 // touch the game state. A solo game, or a host that does not relay pings, offers none.
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { FixtureClient } from './test/fixtureEngine';
 import { coopVsAiSetup } from './gameSetup';
-import { saveFile, useGame } from './store';
+import { useGame } from './store';
 import { FakeSocket } from './test/fakeSocket';
+import { feel } from './feel';
 import { pingAvailable, pingsFor, teammates, withPing, type TeamPing } from './teamPing';
 
 vi.mock('./client', async (orig) => ({
@@ -31,11 +32,13 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-/** Two humans on one team plus two AIs, in hot seat. */
-async function hotSeat() {
+/** A two-human state for testing the online client. */
+async function onlineGameState() {
   const setup = coopVsAiSetup('42', [{ name: 'Ada', faction: 'India' }, { name: 'Bo', faction: 'Byzantium' }]);
   setup.players = setup.players.slice(0, 4);
-  await useGame.getState().startGame(setup);
+  const client = new FixtureClient();
+  await client.newGame(setup);
+  useGame.setState({ client, humans: [0, 1], views: [client.view(0), client.view(1)], orders: [[], []], errors: [[], []], ready: [false, false] });
 }
 
 const HEX = { q: 3, r: 4 };
@@ -48,37 +51,8 @@ it('a solo game offers no ping, and a ping goes nowhere', async () => {
   expect(useGame.getState()).toMatchObject({ pingMode: false, pings: [] });
 });
 
-it('hot seat: a ping shows to the teammate when they take the device, and ends with the turn', async () => {
-  await hotSeat();
-  const s = () => useGame.getState();
-  expect(s().canPing()).toBe(true);
-  s().setPingMode(true);
-  expect(s().pingMode).toBe(true);
-  expect(s().sendPing(HEX)).toBe(true);
-  expect(s().pingMode).toBe(false);
-  const [mine, theirs] = s().views!;
-  expect(pingsFor(mine, s().pings).map((p) => [p.from, p.hex])).toEqual([[mine.me, HEX]]);
-  s().setSeat(1);
-  expect(pingsFor(theirs, s().pings).map((p) => p.from)).toEqual([mine.me]);
-  // Another empire's team never sees it.
-  const other = { ...theirs, team: theirs.team + 1 };
-  expect(pingsFor(other, s().pings)).toEqual([]);
-  // The next turn's view carries no ping.
-  expect(pingsFor({ ...theirs, turn: theirs.turn + 1 }, s().pings)).toEqual([]);
-});
-
-it('a ping is not repeated inside the minimum gap, and a sender has one ping at a time', async () => {
-  await hotSeat();
-  const s = () => useGame.getState();
-  expect(s().sendPing(HEX)).toBe(true);
-  expect(s().sendPing({ q: 5, r: 5 })).toBe(false);
-  await vi.advanceTimersByTimeAsync(700);
-  expect(s().sendPing({ q: 5, r: 5 })).toBe(true);
-  expect(s().pings.map((p) => p.hex)).toEqual([{ q: 5, r: 5 }]);
-});
-
 it('the helpers: teammates, availability and one ping per sender', async () => {
-  await hotSeat();
+  await onlineGameState();
   const view = useGame.getState().views![0];
   expect(teammates(view).map((p) => p.name)).toEqual(['Bo']);
   expect(pingAvailable(view, true)).toBe(true);
@@ -92,10 +66,8 @@ it('the helpers: teammates, availability and one ping per sender', async () => {
 });
 
 async function online(relays: boolean) {
-  await hotSeat();
+  await onlineGameState();
   const view = useGame.getState().views![0];
-  const save = saveFile(useGame.getState().client!, useGame.getState().views!);
-  await useGame.getState().loadSave(save);
   const socket = new FakeSocket('ws://host/ws');
   vi.stubGlobal('WebSocket', class { constructor() { return socket; } });
   const seats = view.players.filter((p) => p.is_human).map((p, seat) => ({
@@ -112,12 +84,15 @@ async function online(relays: boolean) {
 
 it('online: a ping is sent to the host, shown to you at once, and a teammate\'s ping arrives over the host', async () => {
   const { socket, view } = await online(true);
+  const chime = vi.spyOn(feel, 'teamPing');
   const s = () => useGame.getState();
   expect(s().canPing()).toBe(true);
   expect(s().sendPing(HEX)).toBe(true);
   expect(socket.sent.at(-1)).toEqual({ type: 'map_ping', hex: HEX });
   expect(pingsFor(view, s().pings).map((p) => p.from)).toEqual([view.me]);
+  expect(chime).not.toHaveBeenCalled(); // Your own ping is silent.
   socket.push({ type: 'map_ping', from: 1, hex: { q: 6, r: 2 }, turn: view.turn });
+  expect(chime).toHaveBeenCalledOnce(); // A teammate's ping chimes.
   expect(pingsFor(view, s().pings).map((p) => [p.from, p.hex])).toEqual([[view.me, HEX], [1, { q: 6, r: 2 }]]);
   // A ping for another turn, or from a player on another team, is ignored.
   socket.push({ type: 'map_ping', from: 1, hex: { q: 1, r: 1 }, turn: view.turn + 5 });
@@ -133,17 +108,4 @@ it('online: a host from before pings gets no ping message and the control stays 
   expect(useGame.getState().canPing()).toBe(false);
   expect(useGame.getState().sendPing(HEX)).toBe(false);
   expect(socket.types()).not.toContain('map_ping');
-});
-
-it('an armed Ping never survives a seat switch (hot seat hand-over) or a turn change', async () => {
-  await hotSeat();
-  const s = () => useGame.getState();
-  s().setPingMode(true);
-  expect(s().pingMode).toBe(true);
-  s().setSeat(1);
-  expect(s().pingMode).toBe(false);
-  s().setPingMode(true);
-  expect(s().pingMode).toBe(true);
-  s().setSeat(0);
-  expect(s().pingMode).toBe(false);
 });

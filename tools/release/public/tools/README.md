@@ -6,7 +6,7 @@ Helper programs around the engine. Everything here is optional for building and 
 | --- | --- |
 | `tools/sim/` | Simulation, combat and pacing runs, and `repin.sh`, which regenerates the pinned determinism tapes and hashes after an intended rule change. |
 | `tools/analysis/` | Balance, strategy-diversity and human-playbook analysis. |
-| `tools/scenarios/` | Extract, cut, compare and show saved game states and scenarios. |
+| `tools/scenarios/` | Extract, cut and inspect AI measurement positions from saved games. |
 | `tools/art/` | Unit-art distinctness checks and derivative generation. |
 | `tools/audio/` | Build the shipped audio from raw downloads: trim, loudness-normalise, encode, write credits. |
 | `scripts/build-wasm.sh` | Build the engine as WASM for the web UI. |

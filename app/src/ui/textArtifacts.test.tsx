@@ -12,7 +12,6 @@ import { FACTION_GOAL, SWARM_GOAL } from '../data';
 import { artifactsIn, auditBlocks, auditCopy, copyIssuesIn, htmlBlocks } from '../test/textArtifacts';
 import { companyText, coreInterfaceText, diplomacyText, factionText, guideText, interfaceText, itemText, renderedSheetText, reportText, techText, victoryText, type TextGroup } from '../test/playerText';
 import { FactionSheetView } from './FactionPicker';
-import { SOON_SLOTS, heldBackCatalog, scenarioCatalog } from '../scenarios/scenarios';
 
 const report = (hits: string[]) => expect(hits, hits.join('\n')).toEqual([]);
 
@@ -20,7 +19,7 @@ it('the detector flags every artifact the user described and passes clean prose'
   for (const bad of ['152 Production,.', 'a , b', 'x ;.', 'x :.', 'wait..', 'a ,b', 'a .b', 'a,, b', 'Cost ( )', 'Cost ()', ', and more', 'one  two', 'undefined Gold', 'NaN turns', 'null', 'A · · B', 'Walls,', 'Walls ·', 'Walls -']) {
     expect(artifactsIn(bad), bad).not.toEqual([]);
   }
-  for (const good of ['Requires Masonry. The city fires like any walled city.', 'Wait… what', 'Wait...', '+3 Production, −1 Gold', '152 Production', 'Sees 3 hexes.', 'Cost (Gold)', 'Peace · 7 turns', 'Level 1.5', '—', 'Buy—', '· 7 of 10 VP', 'Hit −18 HP (82 left)+']) {
+  for (const good of ['Requires Masonry. The city fires like any walled city.', 'Wait… what', 'Wait...', '+3 Production, −1 Gold', '152 Production', 'Sees 3 hexes.', 'Cost (Gold)', 'Peace · 7 turns', 'Level 1.5', '—', 'Buy—', '· 7 of 10 VP', 'Hit −18 health (82 left)+']) {
     expect(artifactsIn(good), good).toEqual([]);
   }
   // The exact markup of the bug: a card's cost amount followed by what a regex left behind.
@@ -110,17 +109,6 @@ it('mercenary company texts read cleanly (rule, contract line, roster, order, re
 it('a core game\'s turn report reads cleanly (every line player 0 reads over 60 AI turns)', async () => {
   report(audit(await reportText(60)));
 }, 60_000);
-
-it('every Scenario Lab card, briefing and objective reads cleanly (including scenarios held back and the soon slots)', () => {
-  const blocks: string[] = [];
-  for (const e of [...scenarioCatalog(), ...heldBackCatalog()]) {
-    const f = e.file;
-    blocks.push(f.title, f.briefing, f.objective.summary, f.lab!.question, f.lab!.blurb, f.lab!.ask ?? '', f.lab!.opponent ?? '', f.tests ?? '');
-  }
-  for (const s of SOON_SLOTS) blocks.push(s.title, s.question, s.blurb, `Waiting for ${s.waitingFor}.`);
-  const text = blocks.filter(Boolean);
-  report([...auditBlocks('scenario lab', text), ...auditCopy('scenario lab', text)]);
-});
 
 it('Germany\'s text names the Ruhr Foundry, never the Forge, except to compare the two', () => {
   const german = (g: TextGroup) => /\(Germany\) | for Germany$|^Germany (info|sheet)$|^sheet Germany$/.test(g.label);

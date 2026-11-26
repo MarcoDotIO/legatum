@@ -1,6 +1,5 @@
-//! Every shipped scenario (repo `scenarios/*.json`, and the war scenarios in `scenarios/war/`) is a legal, playable position: it parses, its
-//! state matches its hash, the rules accept the position and the objective, the seat is the
-//! only human, and the AI plays it deterministically from the same seed.
+//! Every AI measurement position parses, matches its state hash, passes rule and objective
+//! validation, and plays deterministically from the same seed.
 
 use legatum_core::scenario::Outcome;
 use legatum_wasm::scenario::{ActiveScenario, ScenarioFile};
@@ -9,7 +8,7 @@ use std::path::PathBuf;
 
 fn scenarios() -> Vec<(PathBuf, ScenarioFile)> {
     let dir = PathBuf::from(concat!(env!("CARGO_MANIFEST_DIR"), "/../../scenarios"));
-    let mut files: Vec<_> = [dir.clone(), dir.join("war")]
+    let mut files: Vec<_> = [dir.clone(), dir.join("lab"), dir.join("war")]
         .iter()
         .flat_map(|d| std::fs::read_dir(d).expect("scenarios directory"))
         .map(|e| e.unwrap().path())
@@ -18,7 +17,7 @@ fn scenarios() -> Vec<(PathBuf, ScenarioFile)> {
     files.sort();
     assert!(
         files.len() >= 11,
-        "the four skateboard and seven war scenarios ship"
+        "the root positions and war suite are present"
     );
     files
         .into_iter()
@@ -33,7 +32,7 @@ fn scenarios() -> Vec<(PathBuf, ScenarioFile)> {
 
 /// Play `turns` turns with every empire on the scripted AI; return the final hash and status.
 fn play(file: &ScenarioFile, turns: u32) -> (u64, Outcome) {
-    let start = file.prepare(false).unwrap();
+    let start = file.prepare().unwrap();
     let active = ActiveScenario::new(file.clone(), start.clone());
     let mut session = Session::from_state(start, |_| BrainKind::Scripted);
     session.history = None;
@@ -54,14 +53,8 @@ fn every_scenario_is_legal_and_names_its_seat() {
             "{}: id must match the file name",
             path.display()
         );
-        let state = file.prepare(true).unwrap_or_else(|e| panic!("{name}: {e}"));
-        let humans: Vec<_> = state
-            .players
-            .iter()
-            .filter(|p| p.is_human)
-            .map(|p| p.id)
-            .collect();
-        assert_eq!(humans, vec![file.seat], "{name}");
+        let state = file.prepare().unwrap_or_else(|e| panic!("{name}: {e}"));
+        assert!(state.players.iter().all(|p| !p.is_human), "{name}");
         assert_eq!(state.player(file.seat).faction, file.faction, "{name}");
         assert!(state.player(file.seat).alive, "{name}");
         let status = ActiveScenario::new(file.clone(), state.clone()).status(&state);

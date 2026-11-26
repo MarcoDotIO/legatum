@@ -10,6 +10,7 @@ import { App } from './App';
 import { useGame } from './store';
 import { retryGameHistory } from './platform/archive';
 import { installSound } from './feel';
+import { installDisplay } from './platform/display';
 import { setMusicForView } from './feel/sound';
 import { loadTerrainSprites } from './map/terrainVariant';
 import { loadWasmModule, wasmAvailable } from './wasmClient';
@@ -20,9 +21,18 @@ import { NarrowGate } from './ui/NarrowPlate';
 installGlobalErrorHandlers();
 
 // Sound unlocks on the first gesture (autoplay rules). The committed viewer's
-// diplomacy state selects the theme; title and other screens use the full piece.
+// people and diplomacy state select the music; title and other screens use the title piece.
 installSound();
-useGame.subscribe((state) => setMusicForView(state.screen === 'game' ? state.views?.[state.seat] ?? null : null));
+// Full screen and the browser's install offer (Settings shows them where the browser supports them).
+installDisplay();
+useGame.subscribe((state) => {
+  const view = state.screen === 'game' ? state.views?.[state.seat] ?? null : null;
+  // Several people at one screen (hot seat) share the music every people hears; one player hears their own people's.
+  const me = view?.players.find((p) => p.id === view.me);
+  const people = view && state.humans.length === 1 ? me?.faction ?? null : null;
+  // Meeting another empire plays their people's music while its plate is up.
+  setMusicForView(view, (view && state.meetingPeople) || people, me?.era ?? 1);
+});
 
 // The terrain art (organic S2; `?terrain=current` skips it) must be decoded before the first map chunk is baked.
 // Until React mounts, index.html's static loading plate fills #root. An engine that is in the build but

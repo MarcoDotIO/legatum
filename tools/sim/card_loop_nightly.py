@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-"""Card loop over every Lab card: score Hard, search each failing training card, queue one task per divergence.
+"""Card loop over AI measurement positions: score Hard and search failing training positions.
 
 Usage (normally through tools/sim/card-loop.sh, which builds the simulator first):
   tools/sim/card_loop_nightly.py [--score-only] [--cards ID ...] [--max-evals N] [--date YYYY-MM-DD]
 
-All play is the Rust engine (`legatum-sim card-loop`); this script only reads its JSON. Designer
-runs are read from ~/LegatumData/scenarios/ (never written). A run seeds a card's search only when
-its revision and state hash match the card; otherwise the card is searched from Hard's own orders.
+All play is the Rust engine (`legatum-sim card-loop`); this script reads its JSON.
 
 The train / held-out split is the scenario gate's, docs/sim-results/scenario-gate/split.json (one
 split for every tool; new cards are added by tools/sim/scenario_gate_split.py --add). Held-out
@@ -31,7 +29,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 OUT = ROOT / "docs/sim-results/ai-quality/card-loop-queue"
 SPLIT = ROOT / "docs/sim-results/scenario-gate/split.json"
-RUNS_DIR = Path.home() / "LegatumData/scenarios"
 BIN = ROOT / "target/release/legatum-sim"
 CONTAMINATED = "status: contaminated (held out in the scenario-gate split; do not queue or tune on it)"
 
@@ -74,29 +71,6 @@ def latest_search(out: Path, card_id: str) -> tuple[dict | None, Path | None]:
     return None, None
 
 
-def designer_runs(runs_dir: Path) -> dict[str, list[dict]]:
-    """Finished designer runs by card id: revision, state hash, score, outcome, file name."""
-    out: dict[str, list[dict]] = {}
-    for path in sorted(runs_dir.glob("*.json")):
-        try:
-            run = json.loads(path.read_text(encoding="utf-8"))
-        except (OSError, ValueError):
-            continue
-        if not isinstance(run, dict) or run.get("format") != "legatum-scenario-run":
-            continue
-        if run.get("abandoned") or not run.get("outcome"):
-            continue
-        card = run["scenario"]
-        out.setdefault(card["id"], []).append({
-            "file": str(path),
-            "revision": card["revision"],
-            "state_hash": str(card["state_hash"]),
-            "score": run.get("score"),
-            "outcome": run["outcome"].get("outcome"),
-        })
-    return out
-
-
 def sim(args: list[str]) -> subprocess.CompletedProcess:
     return subprocess.run([str(BIN), "card-loop", *args], cwd=ROOT, text=True,
                           capture_output=True)
@@ -110,11 +84,9 @@ def score_card(card: Path, threads: int, tmp: Path) -> dict:
     return json.loads((out / "result.json").read_text())
 
 
-def search_card(card: Path, run: dict | None, out: Path, args) -> dict:
+def search_card(card: Path, out: Path, args) -> dict:
     cmd = [str(card), "--out", str(out), "--threads", str(args.threads),
            "--max-evals", str(args.max_evals), "--split", str(SPLIT)]
-    if run:
-        cmd += ["--run", run["file"]]
     p = sim(cmd)
     if p.returncode != 0:
         raise SystemExit(f"{card.stem}: {p.stderr.strip()}")
@@ -138,7 +110,7 @@ def task_text(card_id: str, result: dict, date: str, report: Path) -> str:
 name: card-{card_id}-t{turn}
 model: sol
 
-Card loop {date}: on the Lab card `{card_id}` (`scenarios/lab/{card_id}.json`, revision {result['card']['revision']}), a searched order line beats Hard on held-out dice: {line['wins']}/{line['n']} wins and mean card score {line['score_sum'] / line['n']:.1f}, against Hard's {hard['wins']}/{hard['n']} and {hard['score_sum'] / hard['n']:.1f}. Report: `{report.relative_to(ROOT)}`.
+Card loop {date}: on the measurement position `{card_id}` (`scenarios/lab/{card_id}.json`, revision {result['card']['revision']}), a searched order line beats Hard on held-out dice: {line['wins']}/{line['n']} wins and mean card score {line['score_sum'] / line['n']:.1f}, against Hard's {hard['wins']}/{hard['n']} and {hard['score_sum'] / hard['n']:.1f}. Report: `{report.relative_to(ROOT)}`.
 
 First divergence, turn {turn}, same position (training seed 1):
 
@@ -161,14 +133,12 @@ def main() -> None:
     ap.add_argument("--max-evals", type=int, default=300)
     ap.add_argument("--threads", type=int, default=14)
     ap.add_argument("--date", default=dt.date.today().isoformat())
-    ap.add_argument("--runs-dir", type=Path, default=RUNS_DIR)
     args = ap.parse_args()
 
     split = load_split()
     cards = sorted((ROOT / "scenarios/lab").glob("*.json"))
     if args.cards:
         cards = [c for c in cards if c.stem in set(args.cards)]
-    runs = designer_runs(args.runs_dir)
     run_dir = OUT / "runs" / args.date
     tmp = run_dir / "score"
     rows = []
@@ -176,25 +146,13 @@ def main() -> None:
         meta = json.loads(card.read_text())
         res = score_card(card, args.threads, tmp)
         hard = res["hard"]
-        mine = runs.get(card.stem, [])
-        matching = [r for r in mine if r["revision"] == meta["revision"]
-                    and r["state_hash"] == meta["state"]["hash"]]
-        best = max(matching, key=lambda r: r["score"] or 0, default=None)
-        stale = max(mine, key=lambda r: r["score"] or 0, default=None) if not best else None
         hard_mean = hard["score_sum"] / hard["n"]
-        if best:
-            failing, parity = hard_mean < best["score"], hard_mean >= best["score"]
-        else:
-            failing, parity = hard["wins"] * 2 < hard["n"], None
+        failing = hard["wins"] * 2 < hard["n"]
         rows.append({"id": card.stem, "side": side(card.stem, split), "revision": meta["revision"],
                      "hard_wins": hard["wins"], "n": hard["n"], "hard_mean": round(hard_mean, 1),
-                     "designer": best and {"score": best["score"], "file": Path(best["file"]).name},
-                     "stale_designer": stale and {"score": stale["score"], "revision": stale["revision"],
-                                                  "file": Path(stale["file"]).name},
-                     "failing": failing, "parity": parity, "_card": card, "_run": best})
+                     "failing": failing, "_card": card})
         print(f"{card.stem}: Hard {hard['wins']}/{hard['n']} mean {hard_mean:.1f}"
-              f"{'' if not best else f', designer {best['score']}'}{' (failing)' if failing else ''}",
-              flush=True)
+              f"{' (failing)' if failing else ''}", flush=True)
 
     tasks = []
     searched = 0
@@ -205,7 +163,7 @@ def main() -> None:
             pass
         elif not args.score_only:
             out = run_dir / row["id"]
-            res = search_card(row["_card"], row["_run"], out, args)
+            res = search_card(row["_card"], out, args)
             searched += 1
             row["line_wins"], row["line_mean"] = res["line_fresh"]["wins"], round(res["line_fresh_mean"], 1)
             better = res["line_fresh"]["score_sum"] > res["hard"]["score_sum"]
@@ -231,7 +189,6 @@ def main() -> None:
             mark_task(path)
 
     held = [r for r in rows if r["side"] == "held out"]
-    with_ref = [r for r in rows if r["parity"] is not None]
     headline = {
         "date": args.date,
         "commit": subprocess.run(["git", "rev-parse", "--short", "HEAD"], cwd=ROOT, text=True,
@@ -242,8 +199,6 @@ def main() -> None:
         "held_out_mean_score": round(sum(r["hard_mean"] for r in held) / max(len(held), 1), 1),
         "held_out_win_percent": round(100 * sum(r["hard_wins"] for r in held)
                                       / max(sum(r["n"] for r in held), 1), 1),
-        "parity": sum(1 for r in with_ref if r["parity"]),
-        "cards_with_designer_reference": len(with_ref),
         "failing": sum(1 for r in rows if r["failing"]),
         "searched": searched,
         "tasks": len(tasks),
@@ -257,49 +212,22 @@ def main() -> None:
 
 def readme(h: dict, rows: list[dict], args, dirty: list[Path]) -> str:
     lines = [
-        "# Card loop queue",
-        "",
-        f"Latest run {h['date']} at `{h['commit']}`, made by `tools/sim/card-loop.sh"
-        f"{' --score-only' if args.score_only else ''}`. Hard plays each Lab card's seat on 50 held-out "
-        "dice seeds (indices 10000–10049).",
-        "",
-        f"**Held-out mean card score: {h['held_out_mean_score']}** over {h['held_out_cards']} held-out "
-        f"Lab cards (Hard wins {h['held_out_win_percent']}% of their runs). **Cards at parity with the "
-        f"designer: {h['parity']} of {h['cards_with_designer_reference']}** that have a designer run on "
-        "the card's current revision and state hash.",
-        "",
-        f"Failing cards: {h['failing']} of {h['cards']} (below his score where he has a matching run, "
-        f"otherwise Hard wins fewer than half the seeds). Searched this run: {h['searched']}. Tasks "
-        f"written this run: {h['tasks']}. Only training cards are searched; the lead triages tasks "
-        "from `tasks/`.",
-        "",
-        "The split is the scenario gate's, `docs/sim-results/scenario-gate/split.json` (one split for "
-        "every tool; add new cards with `tools/sim/scenario_gate_split.py --add`). Held-out cards are "
-        "scored, never searched or tuned on. History: `history.jsonl`. In score-only runs the line "
-        "columns show each training card's newest search.",
-        "",
-        "| Card | Side | Hard wins | Hard mean | Designer (this revision) | Designer (older revision) "
-        "| Line wins | Line mean | Task |",
-        "|---|---|---:|---:|---:|---:|---:|---:|---|",
+        "# Card loop queue", "",
+        f"Latest run {h['date']} at `{h['commit']}`, made by `tools/sim/card-loop.sh`.", "",
+        f"Held-out mean position score: {h['held_out_mean_score']} over {h['held_out_cards']} positions. "
+        f"Hard wins {h['held_out_win_percent']}% of runs.", "",
+        f"Failing positions: {h['failing']} of {h['cards']} (Hard wins fewer than half the seeds). "
+        f"Searched: {h['searched']}. Tasks: {h['tasks']}.", "",
+        "| Position | Side | Hard wins | Hard mean | Line wins | Line mean | Task |",
+        "|---|---|---:|---:|---:|---:|---|",
     ]
     for r in rows:
-        d = r["designer"]["score"] if r["designer"] else ""
-        s = (f"{r['stale_designer']['score']} (r{r['stale_designer']['revision']})"
-             if r["stale_designer"] else "")
-        lines.append(
-            f"| {r['id']} | {r['side']} | {r['hard_wins']}/{r['n']} | {r['hard_mean']} | {d} | {s} | "
-            f"{r.get('line_wins', '')}{'/' + str(r['n']) if 'line_wins' in r else ''} | "
-            f"{r.get('line_mean', '')} | {r.get('task', '')} |")
+        lines.append(f"| {r['id']} | {r['side']} | {r['hard_wins']}/{r['n']} | {r['hard_mean']} | "
+                     f"{r.get('line_wins', '')}{'/' + str(r['n']) if 'line_wins' in r else ''} | "
+                     f"{r.get('line_mean', '')} | {r.get('task', '')} |")
     if dirty:
-        lines += [
-            "",
-            "## Contaminated results",
-            "",
-            "These were searched before the loop read the scenario gate's split, on cards it holds out. "
-            "They are kept as a record; never queue them or tune on them. Task files carry a "
-            "`status: contaminated` header.",
-            "",
-        ]
+        lines += ["", "## Contaminated results", "",
+                  "These held-out positions were searched before the split was enforced. Keep them only as history.", ""]
         lines += [f"- `{p.relative_to(OUT)}`" for p in dirty]
     return "\n".join(lines) + "\n"
 

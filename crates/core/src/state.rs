@@ -68,6 +68,13 @@ pub struct GameSetup {
     /// tape and hash is unchanged.
     #[serde(default, skip_serializing_if = "std::ops::Not::not")]
     pub ai_alliances: bool,
+    /// Deals (rules 61, Sam 2026-11-25): Gold in Peace, Alliance and Open Borders offers, Gold
+    /// gifts to any met empire not at War, and Open Borders as a third treaty
+    /// (`diplomacy::TreatyKind::OpenBorders`). The app turns it on for new games. Off, every
+    /// deal is refused and nothing changes; omitted when false, so every existing setup, save,
+    /// tape and hash is unchanged.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub deals: bool,
 }
 
 impl GameSetup {
@@ -152,6 +159,7 @@ impl GameSetup {
             turn_limit: None,
             legacy_all_war: false,
             ai_alliances: false,
+            deals: false,
             barbarians: true,
             rule_experiments: Default::default(),
         }
@@ -178,6 +186,7 @@ impl GameSetup {
             turn_limit: None,
             legacy_all_war: false,
             ai_alliances: false,
+            deals: false,
             barbarians: true,
             rule_experiments: Default::default(),
         }
@@ -478,6 +487,13 @@ pub struct City {
     #[serde(default)]
     pub bought: Option<ProductionPurchase>,
     pub buildings: BTreeSet<BuildingKind>,
+    /// Completed Walls level, 0 when unwalled. A captured city retains it.
+    #[serde(default, skip_serializing_if = "is_zero_u8")]
+    pub walls_level: u8,
+    /// Damage the Walls bar has taken (`combat::walls_hp`). It never heals on its own: the next
+    /// completed Walls build restores it, and a bar that reaches 0 destroys the Walls.
+    #[serde(default, skip_serializing_if = "is_zero_i32")]
+    pub walls_damage: i32,
     pub hp: i32,
     /// Tiles gained after founding and still held through population growth.
     pub tiles_claimed: i32,
@@ -503,6 +519,13 @@ pub struct City {
 }
 
 impl City {
+    pub fn wall_tier(&self) -> u8 {
+        crate::data::wall_tier(self)
+    }
+    /// What is left of the Walls bar (`combat::walls_hp`); 0 without Walls.
+    pub fn walls_hp(&self) -> i32 {
+        crate::combat::walls_hp(self.wall_tier(), self.walls_damage)
+    }
     /// Whether the active build owns `production_stored`. Projects never hold progress, so
     /// with a project (or nothing) active the stored amount is unassigned.
     pub fn holds_progress(&self) -> bool {
@@ -639,6 +662,11 @@ pub struct CityMemory {
     pub hp: i32,
     pub walls: bool,
     #[serde(default)]
+    pub walls_level: u8,
+    /// Damage the Walls bar had taken when last seen (`City::walls_damage`).
+    #[serde(default, skip_serializing_if = "is_zero_i32")]
+    pub walls_damage: i32,
+    #[serde(default)]
     pub citadel: bool,
     #[serde(default)]
     pub star_fort: bool,
@@ -655,7 +683,9 @@ pub struct CityMemory {
 impl CityMemory {
     /// The Walls tier above plain Walls: 0 none, 1 Castle, 2 Star Fort.
     pub fn fort_tier(&self) -> u8 {
-        u8::from(self.citadel) + u8::from(self.star_fort)
+        self.walls_level
+            .saturating_sub(1)
+            .max(u8::from(self.citadel) + u8::from(self.star_fort))
     }
 }
 
@@ -667,9 +697,11 @@ impl From<&City> for CityMemory {
             name: city.name.clone(),
             population: city.population,
             hp: city.hp,
-            walls: crate::data::has_building(&city.buildings, BuildingKind::Walls),
-            citadel: crate::data::has_building(&city.buildings, BuildingKind::Castle),
-            star_fort: crate::data::has_building(&city.buildings, BuildingKind::StarFort),
+            walls: city.wall_tier() > 0,
+            walls_level: city.wall_tier(),
+            walls_damage: city.walls_damage,
+            citadel: city.wall_tier() >= 2,
+            star_fort: city.wall_tier() >= 3,
             has_workshop: city
                 .buildings
                 .iter()
@@ -694,6 +726,8 @@ impl CityMemory {
                 population: 1,
                 hp: crate::data::CITY_HP,
                 walls: false,
+                walls_level: 0,
+                walls_damage: 0,
                 citadel: false,
                 star_fort: false,
                 has_workshop: false,
@@ -744,6 +778,10 @@ pub struct Player {
     /// Ordered research plan, including `researching` at the front.
     #[serde(default)]
     pub research_queue: Vec<TechId>,
+    /// A later technology the player is heading for (the tech tree's goal). When the queue runs
+    /// out it picks what comes next (`rules::cities::follow_research_goal`); cleared once known.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub research_goal: Option<TechId>,
     pub techs: BTreeSet<TechId>,
     /// Tiles this player has ever seen (index = map index).
     pub explored: BitSet,
@@ -973,6 +1011,7 @@ static BARBARIAN_PLAYER: std::sync::LazyLock<Player> = std::sync::LazyLock::new(
     science_conversion: ScienceConversion::Gold,
     researching: None,
     research_queue: Vec::new(),
+    research_goal: None,
     techs: BTreeSet::new(),
     explored: BitSet::new(0),
     tile_memory: Vec::new(),
@@ -1036,6 +1075,28 @@ impl GameState {
     /// The moves `u` gets a turn.
     pub fn unit_moves_of(&self, u: &Unit) -> i32 {
         self.unit_stats_of(u).moves
+    }
+
+    /// What `u` pays to enter `h`: `Map::move_cost` under its own unit rules, or `None` when
+    /// impassable. An Egyptian Chariot Archer pays its whole turn for Forest or Hills without a
+    /// road (`data::chariot_step_cost`). Movement resolution and route previews both use this.
+    pub fn unit_step_cost(&self, u: &Unit, h: Hex) -> Option<i32> {
+        let cost = self.map.move_cost(h)?;
+        Some(if self.is_chariot_archer(u) {
+            crate::data::chariot_step_cost(cost, self.unit_moves_of(u))
+        } else {
+            cost
+        })
+    }
+
+    /// Whether `u` is an Egyptian Chariot Archer (`data::is_chariot_archer_rules`).
+    pub fn is_chariot_archer(&self, u: &Unit) -> bool {
+        !u.owner.is_barbarian()
+            && crate::data::is_chariot_archer_rules(
+                self.setup.rule_experiments.faction_rules_off,
+                self.made_by(u),
+                u.kind,
+            )
     }
 
     pub fn player(&self, id: PlayerId) -> &Player {

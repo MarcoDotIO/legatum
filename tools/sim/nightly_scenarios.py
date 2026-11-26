@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the current Scenario Lab cards on the Linux build box and keep compact scores."""
+"""Run the current AI measurement positions on the Linux build box and keep compact scores."""
 import argparse
 import json
 from pathlib import Path
@@ -13,12 +13,12 @@ def main():
     p.add_argument("--out", required=True)
     p.add_argument("--runs", type=int, default=50)
     args = p.parse_args()
-    cards = sorted(Path("scenarios/lab").glob("*.json"))
-    if not cards:
-        raise ValueError("no Scenario Lab cards")
+    positions = sorted(Path("scenarios/lab").glob("*.json"))
+    if not positions:
+        raise ValueError("no AI measurement positions")
     results = {}
     with tempfile.TemporaryDirectory() as tmp:
-        for card in cards:
+        for card in positions:
             subprocess.run([args.binary, "scenario", str(card), "--runs", str(args.runs),
                             "--difficulty", "hard", "--threads", "16", "--out", tmp], check=True)
             report = json.loads((Path(tmp) / (card.stem + "-baseline.json")).read_text())

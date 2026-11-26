@@ -71,8 +71,12 @@ def sim_cpu(bins, scenario, games):
 def ai_turns(bins, seed, turns):
     out = sh([str(bins / "ai_budget"), str(seed), str(turns), "hard"], env={"RAYON_NUM_THREADS": "1"})
     rows = list(csv.DictReader(io.StringIO(out[out.index("turn,"):])))
-    ms = sorted(float(r["end_turn_ms"]) for r in rows)
-    return statistics.median(ms), ms[int((len(ms) - 1) * 0.95)], rows[-1]["hash"] if rows else ""
+    return [float(r["end_turn_ms"]) for r in rows], rows[-1]["hash"] if rows else ""
+
+
+def p50_p95(ms):
+    ms = sorted(ms)
+    return statistics.median(ms), ms[int((len(ms) - 1) * 0.95)]
 
 
 def timings(base_bins, head_bins, quick):
@@ -87,10 +91,16 @@ def timings(base_bins, head_bins, quick):
             runs["base"].append(fn(base_bins))
             runs["head"].append(fn(head_bins))
         if key == "ai_turn":
+            # The benchmark game can end before the last turn, and an AI or rule change moves
+            # that turn. Compare the turns both sides played, or a longer game reads as slower
+            # turns (2026-11-23: +25% p50 that was only 32 more late turns).
+            common = min(len(r[0]) for side in runs for r in runs[side])
             for side in runs:
-                res[f"{side}.ai_turn_p50_ms"] = min(r[0] for r in runs[side])
-                res[f"{side}.ai_turn_p95_ms"] = min(r[1] for r in runs[side])
-                res[f"{side}.ai_final_hash"] = runs[side][0][2]
+                stats = [p50_p95(r[0][:common]) for r in runs[side]]
+                res[f"{side}.ai_turn_p50_ms"] = min(s[0] for s in stats)
+                res[f"{side}.ai_turn_p95_ms"] = min(s[1] for s in stats)
+                res[f"{side}.ai_turns_played"] = len(runs[side][0][0])
+                res[f"{side}.ai_final_hash"] = runs[side][0][1]
         else:
             for side in runs:
                 res[f"{side}.{key}"] = min(r[0] for r in runs[side])

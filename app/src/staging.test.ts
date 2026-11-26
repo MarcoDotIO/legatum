@@ -12,6 +12,17 @@ function room(): StagingState {
 }
 
 describe('staging room model', () => {
+  it('loads an older mixed-level room using its hardest AI seat for every AI', () => {
+    const st = room();
+    st.config.seats = st.config.seats.map((seat, i) => seat.kind === 'ai'
+      ? { ...seat, difficulty: i === 3 ? 'Normal' : 'Easy' }
+      : seat);
+    const lobby = lobbyFromStaging(st);
+    expect(levelOf(lobby)).toBe('Normal');
+    expect(lobby.slots.filter((seat) => seat.kind === 'ai').every((seat) => levelOf(seat) === 'Normal')).toBe(true);
+    expect(configFromLobby(lobby).seats.filter((seat) => seat.kind === 'ai').every((seat) => seat.difficulty === 'Normal')).toBe(true);
+  });
+
   it('carries Training to the server and back with the developer switch on, and omits it for every other level', () => {
     vi.stubGlobal('localStorage', { getItem: (key: string) => key === 'legatum.dev.training' ? '1' : null, setItem: () => undefined, removeItem: () => undefined });
     const l = setDifficulty(setSlot(newLobby('host', '77'), 1, { kind: 'ai' }), 'Training');

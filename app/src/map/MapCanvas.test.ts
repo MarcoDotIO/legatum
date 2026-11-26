@@ -47,7 +47,8 @@ beforeEach(async () => {
   vi.spyOn(window, 'matchMedia').mockReturnValue(preference);
   // A frame for the hover alone clips the map canvas before it draws (the draw itself is mocked): give that canvas a context to clip.
   const clip = { save() {}, restore() {}, setTransform() {}, beginPath() {}, rect() {}, clip() {} } as unknown as CanvasRenderingContext2D;
-  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) { return this.classList.contains('map-canvas') ? clip : null; });
+  // Cast: three's types add a WebGPU overload of getContext that a 2D mock cannot match.
+  vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockImplementation(function (this: HTMLCanvasElement) { return this.classList.contains('map-canvas') ? clip : null; } as never);
   const client = new FixtureClient();
   const setup = await client.standardSetup('42', 'India', 'Byzantium', 'Ada', 'Bo');
   setup.rule_experiments = { ...setup.rule_experiments, start_settlers: 1 };

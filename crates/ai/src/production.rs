@@ -36,6 +36,7 @@ mod siege_deadline_tests {
             &include_bytes!("../tests/fixtures/gergovia-t29.json.gz")[..],
         ))
         .unwrap();
+        let state = crate::fixture::with_rules61_walls(state);
         let view = player_view(&state, PlayerId(5));
         let city = view.cities.iter().find(|c| c.name == "Gergovia").unwrap();
         let ranger = ProductionItem::Unit {
@@ -2427,6 +2428,10 @@ impl Planner<'_> {
             if !detail.captured || detail.raze_blocker.is_some() {
                 continue;
             }
+            // Gene `rome_opening_finish`: the opening keeps what it takes from its victim.
+            if self.rome_finish_keeps(detail.former_owner) {
+                continue;
+            }
             if self.decisions.raze_value > 0 {
                 if self.raze_by_value(i, city) {
                     raze.push(city.id);
@@ -2884,7 +2889,9 @@ impl Planner<'_> {
         } else {
             None
         };
-        let routine = door.or_else(|| self.choose_item_inner(ci, c, tally));
+        let routine = door
+            .or_else(|| self.rome_opening_build(c))
+            .or_else(|| self.choose_item_inner(ci, c, tally));
         let chosen = if door.is_some() {
             door
         } else {
@@ -3677,7 +3684,8 @@ impl Planner<'_> {
         }
         if self.faction == Faction::Rome && self.hard_defense() && self.decisions.roman_founders > 0
             && tally.army < (self.ctx.own_cities.len() as i32 * 2 + 1).max(5)
-            && self.ctx.own_cities.len() < 6
+            // Gene `rome_found_now`: founders are replaced at any city count.
+            && (self.ctx.own_cities.len() < 6 || self.rome_found_now())
             && let Some(item) = c.detail.as_ref()?.options.iter()
                 .filter(|o| o.turns > 0 && o.resource_blocker.is_none()
                     && matches!(o.item, ProductionItem::Unit { unit } if legatum_core::data::unit_class(unit) == Some(legatum_core::UnitClass::Melee)))
@@ -4744,9 +4752,13 @@ impl Planner<'_> {
                                 40
                             }) + self.agoge_value(c)
                         }
-                        BuildingKind::Castle | BuildingKind::StarFort => {
+                        BuildingKind::UpgradeWalls => {
+                            // It also repairs a damaged Walls bar, which never heals by itself.
+                            let missing = (c.walls_max_hp - c.walls_hp).max(0);
                             if threatened {
-                                500 + k.military
+                                500 + k.military + missing
+                            } else if missing > 0 {
+                                150 + 2 * missing
                             } else {
                                 20
                             }
@@ -4888,6 +4900,7 @@ impl Planner<'_> {
                                 return 0;
                             }
                         }
+                        BuildingKind::Castle | BuildingKind::StarFort => return 0,
                     }
             }
         }
@@ -5120,6 +5133,16 @@ impl Planner<'_> {
         class(data::is_veteran_infantry(unit), d.veteran_infantry_bonus)
             + class(data::is_infantry(unit), d.infantry_bonus)
             + class(self.mongol_horde() && unit == UnitKind::Cataphract, 100)
+            + class(self.chariot_archer(unit), d.chariot_archer_bonus)
+    }
+
+    /// Whether `unit` is our Chariot Archer (Egypt's Archer with its rule on).
+    fn chariot_archer(&self, unit: UnitKind) -> bool {
+        data::is_chariot_archer_rules(
+            self.view().rule_experiments.faction_rules_off,
+            self.faction,
+            unit,
+        )
     }
 
     pub(crate) fn mongol_horde(&self) -> bool {
@@ -6637,18 +6660,12 @@ mod automation_tests {
         use legatum_core::objectives::{Family, Objective};
         use legatum_core::view::{EraView, ObjectiveProgress, ObjectiveView};
         let mut view = ViewBuilder::new(20, 20)
-            .known_techs(&[TechId::Chivalry])
+            .known_techs(&[TechId::Currency])
             .city(1, ME, off(8, 8), 6)
             .build();
         view.players[0].era = 3;
-        view.cities[0]
-            .detail
-            .as_mut()
-            .unwrap()
-            .buildings
-            .push(BuildingKind::Walls);
         let objective = Objective::Buildings {
-            building: BuildingKind::Castle,
+            building: BuildingKind::Market,
             cities: 1,
         };
         view.eras = vec![EraView {
@@ -6692,12 +6709,12 @@ mod automation_tests {
         let granary = ProductionItem::Building {
             building: BuildingKind::Granary,
         };
-        let castle = ProductionItem::Building {
-            building: BuildingKind::Castle,
+        let market = ProductionItem::Building {
+            building: BuildingKind::Market,
         };
         assert_eq!(
             p.objective_production_choice(0, &view.cities[0], &tally, Some(granary)),
-            Some(castle)
+            Some(market)
         );
     }
 

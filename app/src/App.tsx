@@ -6,7 +6,6 @@ import { JoinScreen } from './screens/JoinScreen';
 import { OnlineLobbyScreen } from './screens/OnlineLobbyScreen';
 import { StagingScreen } from './screens/StagingScreen';
 import { GameScreen } from './screens/GameScreen';
-import { ScenariosScreen } from './screens/ScenariosScreen';
 import { Guide } from './ui/Guide';
 import { LoadingScreen, useLoadingPlate } from './screens/LoadingScreen';
 import { PerfOverlay } from './ui/PerfOverlay';
@@ -32,7 +31,7 @@ export function App() {
   if (!booted) return <LoadingScreen task="Loading…" />;
   if (error?.startsWith('The game engine (WASM) is missing from this build.')) return <ClientErrorScreen message={error} />;
   const body =
-    screen === 'setup' ? <LobbyScreen /> : screen === 'join' ? <JoinScreen /> : screen === 'online' ? <OnlineLobbyScreen /> : screen === 'staging' ? <StagingScreen /> : screen === 'game' ? <GameScreen /> : screen === 'scenarios' ? <ScenariosScreen /> : <TitleScreen />;
+    screen === 'setup' ? <LobbyScreen /> : screen === 'join' ? <JoinScreen /> : screen === 'online' ? <OnlineLobbyScreen /> : screen === 'staging' ? <StagingScreen /> : screen === 'game' ? <GameScreen /> : <TitleScreen />;
   return (
     <>
       {body}

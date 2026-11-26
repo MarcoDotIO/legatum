@@ -1,12 +1,11 @@
-//! `legatum-sim scenario-cut`: cut a playable Scenario Lab scenario from any save of a game
+//! `legatum-sim scenario-cut`: cut an AI measurement position from any save of a game
 //! recorded on the current engine.
 //!
 //! The save's tape is replayed with the current engine (every turn checked against the recorded
-//! hash), the state before turn `--turn` is taken, every empire becomes a Hard AI except the
-//! chosen seat (the human), and the scenario file is written to `scenarios/lab/<id>.json`
-//! with its Lab card (question and two-line blurb), objective and turn limit. A scenario file
-//! with a card is listed in the app's Scenarios screen. `tools/scenarios/cut.sh` wraps this with
-//! the Hard AI baseline. `--inspect` prints one line per turn so the right turn is easy to pick.
+//! hash), the state before turn `--turn` is taken, and the position is written to
+//! `scenarios/lab/<id>.json` with its objective and turn limit. Measurement runs make every
+//! seat an AI. `tools/scenarios/cut.sh` measures the Hard baseline. `--inspect` prints one
+//! line per turn so the right turn is easy to pick.
 //!
 //! The save is only read.
 
@@ -14,14 +13,14 @@ use legatum_core::scenario::{Condition, Metric, Objective, ScoreTerm};
 use legatum_core::{AiDifficulty, CityId, Faction, GameState, PlayerId, UnitKind, resolve_turn};
 use legatum_wasm::rusher::{Rusher, RusherWar};
 use legatum_wasm::scenario::{
-    FORMAT, LabCard, Predictions, ScenarioFile, ScorePrediction, VERSION, encode_state,
+    FORMAT, Predictions, ScenarioFile, ScorePrediction, VERSION, encode_state,
 };
 use std::path::PathBuf;
 
 #[derive(clap::Parser, Debug)]
 #[command(
     name = "legatum-sim scenario-cut",
-    about = "Cut a Scenario Lab scenario from a save at a turn"
+    about = "Cut an AI measurement position from a save at a turn"
 )]
 pub struct Cli {
     /// The save (a .legatum file whose game carries its recorded history).
@@ -30,10 +29,6 @@ pub struct Cli {
     /// The turn the scenario starts on: the position before that turn's orders.
     #[arg(long)]
     pub turn: Option<u32>,
-    /// Instead of cutting, put a Lab card (--question, --blurb, --ask, --order) on an existing
-    /// scenario file so the Scenarios screen lists it; the card's era is read from its state.
-    #[arg(long)]
-    pub card: Option<PathBuf>,
     /// A state dumped by `tools/scenarios/extract-state.sh` (a save replayed on the engine it was
     /// recorded on), used in place of `--save` for a save from an older engine.
     #[arg(long)]
@@ -45,7 +40,7 @@ pub struct Cli {
     pub from: u32,
     #[arg(long, default_value_t = 10_000)]
     pub to: u32,
-    /// The empire the human plays: its player number, faction (Sparta) or country (Sparta).
+    /// The empire being measured: its player number, faction (Sparta) or country (Sparta).
     #[arg(long)]
     pub seat: Option<String>,
     /// File name and id: lowercase letters, digits and dashes.
@@ -53,30 +48,15 @@ pub struct Cli {
     pub id: Option<String>,
     #[arg(long)]
     pub title: Option<String>,
-    /// The question the scenario asks, in plain words.
-    #[arg(long)]
-    pub question: Option<String>,
-    /// Two plain lines setting the scene, for the card.
-    #[arg(long)]
-    pub blurb: Option<String>,
-    /// The full briefing on the scenario's page (plain language; say where things are).
+    /// Optional context for interpreting this AI measurement position.
     #[arg(long)]
     pub briefing: Option<String>,
-    /// What to ask in the feedback box when it differs from the question.
-    #[arg(long)]
-    pub ask: Option<String>,
     /// hold | take:<City>[+<City>] | eliminate:<empire>[+<empire>] | cities:<N> | score
     #[arg(long)]
     pub objective: Option<String>,
     /// Turns in the window.
     #[arg(long)]
     pub turns: Option<u32>,
-    /// Minutes a human needs (default from the turns).
-    #[arg(long)]
-    pub minutes: Option<u32>,
-    /// Position in the list (lower first).
-    #[arg(long)]
-    pub order: Option<u32>,
     /// An AI empire that rushes on a script (see `legatum_wasm::rusher`): player number, faction or country.
     #[arg(long)]
     pub rusher: Option<String>,
@@ -89,12 +69,6 @@ pub struct Cli {
     /// The empire the rusher marches on (default: the nearest city of any empire it is at war with).
     #[arg(long)]
     pub rush_target: Option<String>,
-    /// Keep the scenario off the title screen until this change lands (it is still built and measured).
-    #[arg(long)]
-    pub requires: Option<String>,
-    /// Who the opponent is, shown on the briefing (say it is a scripted rusher).
-    #[arg(long)]
-    pub opponent: Option<String>,
     /// Overwrite an existing scenario with the same id (its revision goes up).
     #[arg(long)]
     pub replace: bool,
@@ -473,36 +447,7 @@ fn inspect(cli: &Cli) -> Result<(), String> {
     Ok(())
 }
 
-fn put_card(cli: &Cli, path: &std::path::Path) -> Result<(), String> {
-    let text = std::fs::read_to_string(path).map_err(|e| format!("{}: {e}", path.display()))?;
-    let mut file = ScenarioFile::parse(&text)?;
-    let state = file.stored_state()?;
-    let question = cli.question.clone().ok_or("--question is required")?;
-    let blurb = cli.blurb.clone().ok_or("--blurb is required")?;
-    file.lab = Some(LabCard {
-        question,
-        blurb,
-        ask: cli.ask.clone(),
-        era: Some(legatum_core::eras::era_of(&state, file.seat)),
-        requires: cli.requires.clone(),
-        opponent: cli.opponent.clone(),
-        order: cli.order,
-    });
-    let mut text = serde_json::to_string_pretty(&file).expect("scenario JSON");
-    text.push('\n');
-    std::fs::write(path, text).map_err(|e| e.to_string())?;
-    println!(
-        "card put on {} (era {})",
-        file.id,
-        file.lab.as_ref().and_then(|l| l.era).unwrap_or(0)
-    );
-    Ok(())
-}
-
 pub fn run(cli: &Cli) -> Result<(), String> {
-    if let Some(path) = &cli.card {
-        return put_card(cli, path);
-    }
     if cli.inspect {
         return inspect(cli);
     }
@@ -523,12 +468,8 @@ pub fn run(cli: &Cli) -> Result<(), String> {
     {
         return Err("--id may use lowercase letters, digits and dashes only".into());
     }
-    let (title, question, blurb, briefing) = (
-        need(&cli.title, "title")?,
-        need(&cli.question, "question")?,
-        need(&cli.blurb, "blurb")?,
-        need(&cli.briefing, "briefing")?,
-    );
+    let title = need(&cli.title, "title")?;
+    let briefing = cli.briefing.clone().unwrap_or_default();
     let spec = need(&cli.objective, "objective")?;
     let turns = cli.turns.filter(|t| *t > 0).ok_or("--turns is required")?;
     let seat_name = need(&cli.seat, "seat")?;
@@ -641,9 +582,9 @@ pub fn run(cli: &Cli) -> Result<(), String> {
         faction: state.player(seat).faction,
         seat,
         difficulty: AiDifficulty::Hard,
-        minutes: cli.minutes.unwrap_or_else(|| (turns * 4 / 5).max(5)),
+        minutes: 0,
         briefing,
-        tests: question.clone(),
+        tests: String::new(),
         objective,
         predictions: Predictions {
             good_play: String::new(),
@@ -656,19 +597,10 @@ pub fn run(cli: &Cli) -> Result<(), String> {
             },
         },
         source: format!(
-            "Cut from {save_name} at turn {turn}: the position before that turn's orders, {how}. Every empire is a Hard AI except the seat; its AI memory starts fresh and the seat's standing orders are cleared. Built by `tools/scenarios/cut.sh`.{edit_note}",
+            "Cut from {save_name} at turn {turn}: the position before that turn's orders, {how}. Measurement runs use AI in every empire with fresh AI memory; the seat's standing orders are cleared. Built by `tools/scenarios/cut.sh`.{edit_note}",
         ),
         baseline: None,
         human: None,
-        lab: Some(LabCard {
-            question,
-            blurb,
-            ask: cli.ask.clone(),
-            era: Some(legatum_core::eras::era_of(&state, seat)),
-            requires: cli.requires.clone(),
-            opponent: cli.opponent.clone(),
-            order: cli.order,
-        }),
         rusher,
         ai_memory: None,
         state: encode_state(&state),

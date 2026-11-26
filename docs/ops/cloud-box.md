@@ -85,6 +85,19 @@ First look, always: `tools/cloud/box.sh status` (state, load, disk, jobs, slots 
   box scripts are clean, on master, and a descendant of the box's version. Otherwise it says
   `box: keeping the box scripts at <sha>, not syncing: ...`. To test unmerged box scripts, `LEGATUM_BOX_SYNC_FORCE=1`; the
   next master sync replaces them.
+* When `/opt/legatum-boxrunner/SYNC_GUARD` exists on the box, a runner owns `/data/bin` and `box_sync` refuses
+  (`box: boxrunner owns /data/bin; refusing legacy box_sync`, return 0, nothing copied), even with
+  `LEGATUM_BOX_SYNC_FORCE=1`. Box scripts then change only through the runner's `update-scripts.sh`
+  (`tools/cloud/box-lib.sh:box_sync`).
+
+## Drain refusals (exit 96)
+
+* On a box with `/run/legatum-boxrunner`, `box-job run` takes the runner's `drain.lock` before it registers as running. While
+  `/run/legatum-boxrunner/draining` exists it prints `box draining` and exits 96, so no new job starts during a drain.
+* `remote.sh` treats 96 as an admission outcome, not a command failure: it retries the same job id with
+  `box-job retry <id>` (only valid while the job's `rc` is 96) after 5, 10 and 15 s, then exits 3 (box unavailable) with
+  `deferred by drain after 3 retries; try again later`. Try again after the drain ends. A command that itself exits 96 on a
+  box without the runner is not retried (`tools/cloud/box/box-job:cmd_retry`, `tools/cloud/remote.sh:retry_drain`).
 
 ## Idle filler and utilisation
 

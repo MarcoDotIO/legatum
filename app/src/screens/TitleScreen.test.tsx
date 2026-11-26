@@ -5,6 +5,7 @@ import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { TitleScreen } from './TitleScreen';
 import { AUTOSAVE_KEY, saveFile, useGame, type SaveFile } from '../store';
 import { FixtureClient } from '../test/fixtureEngine';
+import { coopVsAiSetup } from '../gameSetup';
 import { IDBFactory } from 'fake-indexeddb';
 import { RULES } from '../data';
 import { loadFromFile } from '../platform/files';
@@ -33,20 +34,43 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-it('offers the autosave as the primary Continue and loads that exact save', async () => {
+async function twoHumanAutosave() {
   const client = new FixtureClient();
   await client.newGame(await client.standardSetup('42', 'India', 'Byzantium', 'Ada', 'Bo'));
   const save = saveFile(client, [client.view(0), client.view(1)]);
   localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(save));
+  return save;
+}
+
+it('a game with other players continues as an online host: Continue opens Multiplayer with that save ready', async () => {
+  const save = await twoHumanAutosave();
+  useGame.setState({ online: { relay: 'http://relay.test', build: 'test', rules_version: 0, protocol: 0 } });
   await show(<StrictMode><TitleScreen /></StrictMode>);
-  const button = [...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Continue'))!;
+  const button = continueButton();
   expect(button.disabled).toBe(false);
-  expect(host.querySelectorAll('.title-actions .primary')).toHaveLength(1);
   expect(button.classList.contains('primary')).toBe(true);
   expect(button.textContent).toContain('Ada & Bo');
+  expect(button.textContent).toContain('host it online');
   await press(button);
-  expect(useGame.getState().screen).toBe('game');
-  expect(useGame.getState().client?.save()).toBe(save.game);
+  expect(useGame.getState().screen).toBe('title');
+  expect(useGame.getState().error).toBeNull();
+  // The save is carried over: hosting it is the one primary action, with no file to pick again.
+  const primary = host.querySelectorAll('.title-actions .primary');
+  expect(primary).toHaveLength(1);
+  expect(primary[0].textContent).toMatch(/^Host this save/);
+  expect(primary[0].textContent).toContain(`Ada & Bo · Turn ${save.turn}`);
+});
+
+it('a game with other players cannot Continue in a build with no online play, and says why before it is pressed', async () => {
+  await twoHumanAutosave();
+  await show(<StrictMode><TitleScreen /></StrictMode>);
+  const button = continueButton();
+  expect(button.disabled).toBe(true);
+  expect(button.textContent).toContain('This game has other players');
+  // The reason is said once, under Multiplayer.
+  expect(button.textContent).not.toContain('Online play is unavailable');
+  expect([...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Multiplayer'))!.textContent).toContain('Online play is unavailable');
+  expect(host.querySelector('.title-actions .primary')?.textContent).toMatch(/^Single Player/);
 });
 
 it('keeps Single Player primary when there is no autosave', async () => {
@@ -68,33 +92,14 @@ it('keeps Resume as the sole primary when a game is already open', async () => {
   expect(host.querySelector('.title-actions .primary')?.textContent).toMatch(/^Resume/);
 });
 
-it('shows the exact older-rules message in the save list before loading', async () => {
-  const client = new FixtureClient();
-  await client.newGame(await client.standardSetup('42', 'India', 'Byzantium', 'Ada', 'Bo'));
-  const save = saveFile(client, [client.view(0), client.view(1)]);
-  save.game = save.game.replace(/"save_version":\d+/, '"save_version":5');
-  save.playtest = 'Playtest 8.9.19';
-  localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(save));
-  await show(<TitleScreen />);
-  const saved = [...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Saved game (older version)'))!;
-  expect(saved.disabled).toBe(true);
-  // An unrelated late store error (a status probe that finds no server) must not stand in for the notice under test.
-  // The probe can fail later than one tick on a loaded machine, so keep clearing until the notice settles.
-  for (let i = 0; i < 40 && !host.querySelector('.title-notice')?.textContent?.startsWith('This game was saved'); i++) {
-    await act(async () => { useGame.setState({ error: null }); await new Promise((r) => setTimeout(r, 50)); });
-  }
-  expect(host.querySelector('.title-notice')?.textContent).toBe("This game was saved by Playtest 8.9.19 with older rules and can't continue. Starting a new game replaces the autosave.");
-  expect(host.querySelector('.title-actions .primary')?.textContent).toMatch(/^Single Player/);
-});
-
 // Each test is its own game: the title screen remembers (per slot id) which saves would not open.
 let game = '';
 beforeEach(() => { game = `game-${Math.random()}`; });
 const slot = (save: SaveFile, turn: number, text = JSON.stringify({ ...save, turn })) => writeAutosave({ campaign: game, turn, savedAt: new Date(Date.UTC(2026, 10, 22, 10, turn)).toISOString(), label: 'Ada & Bo', text });
 const aSave = async () => {
   const client = new FixtureClient();
-  await client.newGame(await client.standardSetup('42', 'India', 'Byzantium', 'Ada', 'Bo'));
-  return saveFile(client, [client.view(0), client.view(1)]);
+  await client.newGame(coopVsAiSetup('42', [{ name: 'Ada', faction: 'India' }]));
+  return saveFile(client, [client.view(0)]);
 };
 const continueButton = () => [...host.querySelectorAll('button')].find((b) => b.textContent?.startsWith('Continue') || b.textContent?.startsWith('Saved game'))!;
 const refusing = (save: SaveFile) => JSON.stringify({ ...save, game: JSON.stringify({ save_version: RULES.saveVersion, nothing: true }) });
@@ -104,7 +109,7 @@ it('lists the newest autosave from the browser database, not only the old localS
   await slot(save, 1);
   await slot(save, 2);
   await show(<TitleScreen />);
-  expect(continueButton().textContent).toContain('turn 2');
+  expect(continueButton().textContent).toContain('Turn 2');
   expect(continueButton().disabled).toBe(false);
 });
 
@@ -113,16 +118,15 @@ it('offers the turn before when the newest save will not open, instead of a dead
   await slot(save, 1);
   await slot(save, 2, refusing({ ...save, turn: 2 }));
   await show(<TitleScreen />);
-  expect(continueButton().textContent).toContain('turn 2');
+  expect(continueButton().textContent).toContain('Turn 2');
   await press(continueButton());
   expect(useGame.getState().screen).not.toBe('game');
-  expect(continueButton().textContent).toContain('turn 1');
+  expect(continueButton().textContent).toContain('Turn 1');
   expect(continueButton().disabled).toBe(false);
   expect(continueButton().classList.contains('primary')).toBe(true);
   expect(host.querySelector('.title-notice')?.textContent).toBe('Your latest save (turn 2) could not be opened. Continue opens turn 1 instead.');
   await press(continueButton());
   expect(useGame.getState().screen).toBe('game');
-  expect(useGame.getState().client?.save()).toBe(save.game);
 });
 
 it('skips a newest save that is damaged text, and says so', async () => {
@@ -130,7 +134,7 @@ it('skips a newest save that is damaged text, and says so', async () => {
   await slot(save, 1);
   await slot(save, 2, '{"format":"legatum-save"');
   await show(<TitleScreen />);
-  expect(continueButton().textContent).toContain('turn 1');
+  expect(continueButton().textContent).toContain('Turn 1');
   expect(host.querySelector('.title-notice')?.textContent).toBe('Your latest save (turn 2) could not be opened. Continue opens turn 1 instead.');
 });
 

@@ -88,12 +88,8 @@ Answer with numbers from the save, never vibes:
    
    Also mark which are design or rule questions for the user rather than AI fixes.
 
-## Scenarios for the user (mandatory, user 2026-10-18)
-Every review ends by creating 1 or 2 Scenario Lab scenarios cut from the game. Pick the moments where the answer needs a human: how he plays it, or how it feels. Examples: the turning point he exploited, replayed from the AI's side; a defence the AI failed, so we can see whether a human can hold it; a situation where the what-ifs disagree.
-- Cut each from his save at the right turn with one command: `tools/scenarios/cut.sh SAVE --turn N --seat K --id ID --title ... --question ... --blurb ... --briefing ... --objective hold|take:City|eliminate:Empire|cities:N|score --turns N`. Find the turn first with `cut.sh SAVE --inspect`. The steps and options are in `scenarios/README.md`.
-- The command gives it a one-line question, an objective and a turn limit, adds it to the title-screen Scenarios list (`scenarios/lab/ID.json`) and records the Hard AI's baseline from the same start on the box. Check the baseline is worth comparing to (not 0% or 100% by turn 1), commit `scenarios/lab/` and the baseline files in `docs/sim-results/scenarios/`. Run the copy lint on scenario text first (`cd app && npx vitest run src/ui/textArtifacts.test.tsx`): write "VP", "military unit", and "at War" or "at Peace".
-- List the new scenarios in the review, and tell the lead which to put in front of the user first.
-- Read past scenario runs and feedback (`tools/scenarios/runs-report.py`) before each review, quote the player's free text, and fold what it teaches into the playbook (`legatum-coach` skill).
+## AI measurement positions
+Cut a position from a reviewed game only when it isolates a current AI gap. Use `tools/scenarios/cut.sh` and measure the Hard baseline as described in `scenarios/README.md`. There is no player-facing Scenario Lab or required cut after each review (Sam, 2026-11-22).
 
 ## Output
 - Write the review to `docs/playtests/reviews/<date>-<release>-<faction>.md`, written for the user:

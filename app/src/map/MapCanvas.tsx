@@ -11,7 +11,7 @@ import { isEliminated, useGame } from '../store';
 import type { AlongsideAttack, BattleForecast, CityAssaultForecast, CityBuildFocus, Hex, PlayerView, ProductionItem } from '../types';
 import { cityAutomationFocus, cityAutomationPreview } from '../automation';
 import { distance, hexEq, hexToPixel, pixelToHex, tileIndex, within } from '../hex';
-import { planTurns, previewRoute, roadBonusNote, routeTurnsText, routeRiskText, routeDangerText, isCalmRouteNote, type PathStep, type RouteRisk } from '../path';
+import { chariotTerrainNote, planTurns, previewRoute, roadBonusNote, routeTurnsText, routeRiskText, routeDangerText, isCalmRouteNote, type PathStep, type RouteRisk } from '../path';
 import { draw, HEX_SIZE, perf, screenToWorld, terrainStats, worldBounds, ambientClipRects, hoverClipBoxes, idleClipBoxes, type Camera, type SelectionRing, type ImproveOverlay, type PendingMark, type TerritoryOverlay } from './render';
 import { fontEpoch } from './sprites';
 import { onIconLoad } from '../icons';
@@ -28,6 +28,9 @@ import { buildOverlayTiles, overlayEmpty, useOverlays } from './overlays';
 import { settleTileNote, withProxySettler } from './settleAdvice';
 import { LensSwitcher } from './LensSwitcher';
 import { isColoniaFounder } from '../goalCities';
+import { cancelBattleSounds, playBattleSounds } from '../feel/sound';
+import { useLandSound } from './useLandSound';
+import { battleSoundCues } from '../feel/battleSound';
 import { isBarbarian } from '../barbarians';
 import { SettlementCard, SettlementDetails } from './SettlementCard';
 import { PING_PULSE_MS, pingsFor } from '../teamPing';
@@ -60,7 +63,7 @@ import { atWar, relationWith } from '../diplomacy';
 import { emptyGesture, gestureStep, isDoubleTap, LONG_PRESS_MS, zoomCamera, type GestureEvent, type Point, type Tap } from './gestures';
 import { sameOrderContext, tapOrder, type TapOrder } from './tapOrders';
 import { coord, setUnitOrder } from '../orders';
-import { notifyMapCamera, registerMapCamera } from './camera';
+import { notifyMapCamera, registerMapCamera, takeMapHandoff } from './camera';
 import { alarmedCities } from '../siege';
 import { useCityAlarms } from '../ui/useCityAlarms';
 import { setBorderVariant, type BorderVariant } from './borderVariant';
@@ -139,6 +142,8 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
   const bannerHits = useRef<ReturnType<typeof draw>['bannerHits']>([]);
   const liftedHits = useRef<ReturnType<typeof draw>['liftedHits']>([]);
   const cam = useRef<Camera>({ x: 0, y: 0, zoom: 0.9 });
+  /** The last jump-to (focus.seq) this map has acted on: a 2D / 3D swap hands its centre over only if no newer jump is waiting. */
+  const appliedSeq = useRef(0);
   const size = useRef({ w: 800, h: 600, dpr: 1 });
   const dirty = useRef(true);
   const hoverDirty = useRef(false);
@@ -157,7 +162,6 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
 
   const views = useGame((s) => s.views);
   const seat = useGame((s) => s.seat);
-  const scenarioTargets = useGame((s) => s.scenario?.status.targets);
   const cityAlarms = useCityAlarms();
   const siege = useMemo(() => alarmedCities(cityAlarms), [cityAlarms]);
   const selection = useGame((s) => s.selection);
@@ -165,6 +169,13 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
   const orderErrors = useGame((s) => s.errors[s.seat]);
   const mode = useGame((s) => s.mode);
   const anim = useGame((s) => s.anim);
+  // A battle is heard as it is drawn: the sounds are scheduled against the same plan and clock.
+  useEffect(() => {
+    if (!anim?.plan || still) return;
+    playBattleSounds(battleSoundCues(anim.plan), performance.now() - anim.start);
+    return cancelBattleSounds;
+  }, [anim, still]);
+  useLandSound();
   const focus = useGame((s) => s.focus);
   const client = useGame((s) => s.client);
   const forecastTick = useGame((s) => s.forecastTick);
@@ -347,7 +358,7 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
     const { path: p, risk, danger, crossed } = previewRoute(view, ownSel.pos, previewTarget, orders, ownSel.id, { avoidEnemyReach: true });
     if (!p) return { steps: null as PathStep[] | null, unreachable: previewTarget, risk: null as RouteRisk | null, warning: null as string | null };
     // Friends the route passes through are never where a turn ends (core `path::hop`).
-    const steps = planTurns(view, p, ownSel.pos, ownSel.max_moves, (h) => !!crossed?.some((c) => c.q === h.q && c.r === h.r));
+    const steps = planTurns(view, p, ownSel.pos, ownSel.max_moves, (h) => !!crossed?.some((c) => c.q === h.q && c.r === h.r), ownSel);
     return { steps, unreachable: null, risk, warning: [civilianCaptureRace(view, ownSel, previewTarget, steps.length), risk && routeRiskText(view, risk), danger && routeDangerText(danger)].filter(Boolean).join(' ') || null };
   }, [view, ownSel, previewTarget, orders]);
   /** A route warning belongs to the tile it previews (hover or the open preview card). */
@@ -627,10 +638,9 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
     reducedMotion,
     combatFx: { enabled: combatFx.enabled },
     celebration,
-    scenarioTargets,
     siege,
   });
-  const nextFrame = { anchoringPreview: !!activePreview, lens, lensTiles, overlays, yieldTiles: overlayTiles.yields, borderTiles: overlayTiles.borders, view, selUnit, selection, pathInfo, pathAttack, pendingLines, pendingMarks, cityFocuses, cityBuilds, rangedTiles, goalPreview, territoryOverlay, tileBuys, improveOverlay, placeOverlay, airOverlay, hover, hoverSelect: intent === 'select', pingArmed: pingMode, cues, arrow, pings: livePings, anim, seat, reducedMotion, combatFx: { enabled: combatFx.enabled }, celebration, scenarioTargets, siege };
+  const nextFrame = { anchoringPreview: !!activePreview, lens, lensTiles, overlays, yieldTiles: overlayTiles.yields, borderTiles: overlayTiles.borders, view, selUnit, selection, pathInfo, pathAttack, pendingLines, pendingMarks, cityFocuses, cityBuilds, rangedTiles, goalPreview, territoryOverlay, tileBuys, improveOverlay, placeOverlay, airOverlay, hover, hoverSelect: intent === 'select', pingArmed: pingMode, cues, arrow, pings: livePings, anim, seat, reducedMotion, combatFx: { enabled: combatFx.enabled }, celebration, siege };
   // Redraw only when something the map draws changed: a render for a card or a panel leaves the canvas alone.
   // A change of the tile under the pointer alone repaints only the hover mark and the route (hoverClipBoxes).
   if (hoverOnlyChange(frame.current, nextFrame)) hoverDirty.current = true;
@@ -648,6 +658,7 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
   // Center on focus requests; a `clear` request (a turn report line) settles on the nearest tile position no panel covers.
   useEffect(() => {
     if (!focus) return;
+    appliedSeq.current = focus.seq;
     let p = hexToPixel(focus.hex, HEX_SIZE);
     const canvas = canvasRef.current, game = canvas?.closest('.game');
     if ((focus.clear || selection) && canvas && game) {
@@ -844,6 +855,7 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
     // A look change swaps the map palette: redraw.
     const unregister = registerMapCamera({
       viewport: () => ({ ...cam.current, w: size.current.w, h: size.current.h }),
+      focusSeq: () => appliedSeq.current,
       center: (x, y) => {
         cancelAnimationFrame(focusAnimation.current);
         cam.current.x = x;
@@ -851,6 +863,9 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
         dirty.current = true;
       },
     });
+    // Swapped in from the 3D map: keep looking where it looked (this runs after the mount's focus snap).
+    const from = takeMapHandoff(useGame.getState().focus?.seq ?? 0);
+    if (from) { cancelAnimationFrame(focusAnimation.current); cam.current.x = from.x; cam.current.y = from.y; dirty.current = true; }
     return () => {
       setMapProjector(null);
       unregister();
@@ -970,7 +985,7 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
       // late-game map 20 to 30 times a second only for these kept the main thread busy and made hover and clicks lag.
       // The pointer reaching a new tile is the same kind of frame: the old and new hover marks and routes are a few boxes.
       const pulseOnly = (pulse || siegePulse || smoulderTick || idleTick || hoverMoved) && !dirty.current && !animating && !cueLive && !arrowLive && !pingLive && !celebrating
-        && !f.scenarioTargets?.length && (!pulse || !!lastRing) && (!(siegePulse || smoulderTick) || lastAmbient.length > 0);
+        && (!pulse || !!lastRing) && (!(siegePulse || smoulderTick) || lastAmbient.length > 0);
       const drawT = pulseOnly ? lastFullT : t;
       if (!pulseOnly) lastFullT = t;
       // Idle life keeps its own clock: it moves on a full frame or an idle tick, and holds through the other clipped frames.
@@ -1100,7 +1115,6 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
         ambientT: still ? null : t,
         idleT,
         seatColor: mapPlayerColor(f.view?.me),
-        scenarioTargets: f.scenarioTargets,
         siege: f.siege,
         reducedMotion: still,
       });
@@ -1559,7 +1573,7 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
             {forecast && ownSel && <ForecastSummary forecast={forecast} ranged={forecast.ranged} view={view} unit={ownSel} target={activePreview.target} assault={assault} />}
             {mode !== 'ranged' && routeWarningAt(activePreview.target) && <p className={isCalmRouteNote(routeWarningAt(activePreview.target)) ? 'route-note' : 'route-warning'} role={isCalmRouteNote(routeWarningAt(activePreview.target)) ? undefined : 'alert'} data-testid="route-warning">{routeWarningAt(activePreview.target)}</p>}
             {settlePreviewBlocker && <p className="route-warning" role="status" data-testid="settle-preview-blocker">{settlePreviewBlocker}</p>}
-            <p>{blockedShot ?? (mode === 'ranged' ? `Range ${ownSel?.range}` : pathInfo?.unreachable ? 'No known path to this tile.' : `${pathInfo?.steps && ownSel && previewTarget ? [routeTurnsText(pathInfo.steps, ownSel.pos, previewTarget), roadBonusNote(view, pathInfo.steps, ownSel.pos, ownSel.max_moves)].filter(Boolean).join(' ') : '1 turn path.'} Orders resolve when everyone is ready.`)}</p>
+            <p>{blockedShot ?? (mode === 'ranged' ? `Range ${ownSel?.range}` : pathInfo?.unreachable ? 'No known path to this tile.' : `${pathInfo?.steps && ownSel && previewTarget ? [routeTurnsText(pathInfo.steps, ownSel.pos, previewTarget), roadBonusNote(view, pathInfo.steps, ownSel.pos, ownSel.max_moves, ownSel)].filter(Boolean).join(' ') : '1 turn path.'} Orders resolve when everyone is ready.`)}</p>
             <button className="btn primary confirm-order" disabled={!!blockedShot} title={blockedShot ?? undefined} onClick={() => confirmOrder(activePreview)}>Confirm {mode === 'ranged' || pathAttack ? 'attack' : 'move'}</button>
             {!blockedShot && <p className="muted">{lastPointerType.current === 'mouse' ? `Or right-click to ${mode === 'ranged' || pathAttack ? 'attack' : 'move'} here.` : 'Or tap this tile again to confirm.'}</p>}
           </>}
@@ -1593,7 +1607,7 @@ export function MapCanvas({ inspectRequest }: { inspectRequest?: Hex | null }) {
       )}
       {/* One card at a time: the Peace hint is the decision here, so the tile card waits (both used the same spot). */}
       {!touchInfo && !hoveredBanner && !forecast && !airForecast && !peaceHere && hover && hoverTile && (hoverTile.explored || (view?.units.some((u) => u.heir_of != null && hexEq(u.pos, hover.hex)) ?? false)) && tileHoverReady && view && !gesture.current.contacts.length && (
-        inspectedSite ? <SettlementCard site={inspectedSite} anchor={cardAnchor!} faction={view?.players.find((p) => p.id === view.me)?.faction} /> : <TileCard view={view} hex={hover.hex} anchor={cardAnchor!} blockedReason={blockedShot || undefined} routeWarning={ownSel ? routeWarningAt(hover.hex) : undefined} reinforcement={reinforcementAt(hover.hex)} note={placeNote ?? blockedSiteNote} refusal={placeRefusal} />
+        inspectedSite ? <SettlementCard site={inspectedSite} anchor={cardAnchor!} faction={view?.players.find((p) => p.id === view.me)?.faction} /> : <TileCard view={view} hex={hover.hex} anchor={cardAnchor!} blockedReason={blockedShot || undefined} routeWarning={ownSel ? routeWarningAt(hover.hex) : undefined} reinforcement={reinforcementAt(hover.hex)} note={placeNote ?? blockedSiteNote ?? (ownSel ? chariotTerrainNote(view, ownSel, hover.hex) : undefined)} refusal={placeRefusal} />
       )}
     </div>
   );

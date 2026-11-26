@@ -1,10 +1,16 @@
+import { awayLine, awayPlayers } from '../awayPlayers';
 import { TrainingCard } from '../ui/Training';
 import { WhyCard } from '../ui/WhyCard';
 import { CelebrationProvider, MomentLane } from '../celebrate/MomentLane';
 import { AlarmScreen } from '../celebrate/AlarmScreen';
-import { useEffect } from 'react';
+import { PeopleIntro } from '../celebrate/PeopleIntro';
+import { lazy, Suspense, useEffect, useState } from 'react';
+import { canUse3d, needsFlatMap, useMapView } from '../map3d/mapPrefs';
 import { useGame } from '../store';
 import { MapCanvas } from '../map/MapCanvas';
+
+// The 3D map loads only for players who switch it on (three.js stays out of the 2D download).
+const Map3DView = lazy(() => import('../map3d/Map3DView'));
 import { Minimap } from '../map/Minimap';
 import { PingControl } from '../ui/PingControl';
 import { TopBar } from '../ui/TopBar';
@@ -25,10 +31,8 @@ import { SaveNotice } from '../ui/SaveNotice';
 import { TurnFailureDialog } from '../ui/TurnFailureDialog';
 import { EraNotice } from '../ui/EraNotice';
 import { TurnReport } from '../ui/TurnReport';
-import { HandoffScreen } from '../ui/HandoffScreen';
 import { GameOver } from '../ui/GameOver';
 import { plainOrderError } from '../format';
-import { ScenarioBar, ScenarioResult } from '../ui/ScenarioHud';
 import { handleAircraftKey, handleGameKey } from './gameKeyHandler';
 import { handleOverlayKey, notePointerDown, returnFocusAfterPointer } from '../gameplayKeys';
 import { playerColor } from '../theme';
@@ -57,6 +61,7 @@ export function GameScreen() {
   const resolvingToEnd = useGame((s) => s.resolvingToEnd);
   const stopResolving = useGame((s) => s.stopResolving);
   const conn = useGame((s) => (s.client?.kind === 'remote' ? s.net?.conn : null));
+  const away = useGame((s) => awayLine(awayPlayers(s), 'until'));
   const credentialRejected = useGame((s) => s.client?.kind === 'remote' && s.net?.credentialRejected);
 
   useEffect(() => {
@@ -78,6 +83,10 @@ export function GameScreen() {
   }, []);
 
   useGoalActionKey();
+  const mapKind = useMapView((m) => m.kind);
+  const [can3d] = useState(canUse3d);
+  const picking = useGame(needsFlatMap);
+  const show3d = can3d && mapKind === '3d' && !picking;
   if (!views) return null;
   const view = views[seat];
   const unit = selection?.kind === 'unit' ? view.units.find((u) => u.id === selection.id) : null;
@@ -87,10 +96,9 @@ export function GameScreen() {
 
   return (
     <CelebrationProvider><div className="game" style={{ ['--seat' as string]: playerColor(view.me) }}>
-      <MapCanvas />
+      {show3d ? <Suspense fallback={<MapCanvas />}><Map3DView /></Suspense> : <MapCanvas />}
       <div className="seat-frame" />
       <TopBar />
-      <ScenarioBar />
       <MomentLane />
       <ObjectiveSheet />
       <aside className="right-sidebar paper-grain" aria-label="Empire sidebar"><SeatBar race={<VpTrack />} /><Minimap /><PingControl /></aside>
@@ -114,9 +122,8 @@ export function GameScreen() {
       <TechPanel />
       <CitiesOverview />
       <GameOver />
-      <ScenarioResult />
-      <HandoffScreen />
       <AlarmScreen />
+      <PeopleIntro />
       <FreeTechsPrompt />
       <Advisor />
       <WhyCard />
@@ -143,6 +150,10 @@ export function GameScreen() {
           <button className="btn quiet" onClick={() => useGame.getState().leaveOnline()}>
             Leave
           </button>
+        </div>
+      ) : conn === 'open' && away ? (
+        <div className="conn-banner away-banner" role="status" data-testid="away-banner">
+          <span className="conn-dot" aria-hidden /> {away}
         </div>
       ) : (
         conn &&

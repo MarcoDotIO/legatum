@@ -10,7 +10,7 @@ To find the full entry for a line, search `docs/learnings/` for the words in the
 
 - Integer math only, and never cast a `u64` seed or hash to `usize` (32-bit on wasm32, so native and WASM diverge). Apply a percentage to the total, not the delta (`total * 75 / 100`), or small values escape it. [2026-09]
 - On wasm32 `catch_unwind` catches nothing: a panic reaches JS as `RuntimeError: unreachable`; the UI recovers by rebuilding the `Game` from its last save. Treat save JSON as opaque in JS (u64 bitset words lose precision if re-parsed). [2026-09]
-- Saves and tapes from another `RULES_VERSION` are refused; there are no migrations (designer's "no grandfathering", 2026-10-31). Any change to the save shape or to resolution bumps `RULES_VERSION` (except optional, default-empty client telemetry that no hash reads, such as `turn_times` and `frame_times`) and moves every pinned hash and embedded scenario state. [2026-10]
+- Saves and tapes from another `RULES_VERSION` are refused. Any change to save shape or resolution bumps `RULES_VERSION` and moves pinned hashes and embedded scenario state. [2026-10, 2026-11]
 - Parallel branches silently pick the same `RULES_VERSION`; git merges the shared number with no conflict. Re-check the number against master after every merge, and re-encode scenarios cut on a branch when master bumped first. [2026-11, 2026-11 "scenario cut on a branch"]
 - New state fields must skip serializing their default (`skip_serializing_if`), or every archived fixture re-serializes and archive-hash pins fail. Removing or renaming an enum variant breaks every reader of old records, including the archive index. [2026-10, 2026-11]
 - `GameState::hash` covers player names; anonymizing a recording needs a replay (`Recording::anonymized`). [2026-11]
@@ -46,6 +46,7 @@ To find the full entry for a line, search `docs/learnings/` for the words in the
 - An AI-only ablation can call a faction drawback "backwards" when the AI overspends; read it against human play. [2026-11]
 - Describe what the AI actually does from a recorded tape, not from its configured priority list. [2026-10]
 - A gate keyed on a state the action itself changes closes mid-action: Rome's one-city war gate keyed on "no veteran" shut as soon as the siege promoted its units, and the army walked home. Key gates on the campaign, not on its side effects. [2026-11]
+- A new layer in front of a number (rules 62's Walls bar in front of city health) silently falsifies every surface that forecast the old number: the siege alarm, its hover and the forecast card kept saying "loses about N health" while the Walls took the hits. Grep the old wording in the same change; store the layer's damage, not its value, so old saves load full. [2026-11]
 - A "go beside the city" search that filters out tiles our own units hold stalls forever when our own shooter parks on the only approach tile (a fallen coastal city held at 0 HP for 888 turns). Treat own non-capturing units on approach tiles as movable, and leave cities the ordinary passes can already reach alone: staging on free tiles beside any fallen city moved a held-out cell by -29 pp. [2026-11]
 
 ## Simulations and measurement

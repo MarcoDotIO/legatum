@@ -901,7 +901,6 @@ fn placeholder(r: &Recipe, state: &GameState) -> ScenarioFile {
         source: String::new(),
         baseline: None,
         human: None,
-        lab: None,
         rusher: None,
         ai_memory: None,
         state: EncodedState {

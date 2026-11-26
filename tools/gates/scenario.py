@@ -1,23 +1,8 @@
 #!/usr/bin/env python3
-"""Scenario gate: the fast check for a branch that changes only Scenario Lab files (seconds, no build of the app).
+"""Fast gate for branches containing only AI measurement positions in scenarios/lab/.
 
-A scenario-only branch changes `scenarios/lab/*.json` and the docs that go with them (`docs/sim-results/scenarios/`
-baselines, notes). Such a file is data, not code, so it skips the extended verify and the docs review and passes this
-instead (designer, 2026-11-07: scenarios should ship without a full test and release process):
-
-  shape      format `legatum-scenario`, id = file name, a Lab card (question, blurb), a briefing, an objective,
-             a state with a known encoding, and a recorded Hard AI baseline
-  version    the state's `save_version` is master's `RULES_VERSION` (read from crates/core/src/lib.rs on master)
-  baseline   docs/sim-results/scenarios/<id>-baseline.json and .md exist on the branch
-  engine     the state loads on master's engine: hash matches, position is legal, objective parses
-             (`legatum-sim scenario-check`, built in the checkout that is merging; a no-op build when current)
-  copy       title, briefing, objective, card and opponent text pass the plain-language copy lint
-             (`npx vitest run --config vitest.lint.config.ts`, about 1 s)
-
-Overrides: LEGATUM_SCENARIO_ROOT names the checkout whose engine and lint to use; for tests, LEGATUM_SCENARIO_ENGINE and LEGATUM_SCENARIO_LINT name a command
-(run with the files as arguments / LEGATUM_LINT_SCENARIOS set) in place of the cargo and vitest defaults.
-
-  tools/gates/scenario.py [--repo DIR] FILE...     check scenario files on disk against this checkout's engine
+Checks the scenario file's shape, rules version and state hash on the current engine.
+No player card, copy lint or human run is required.
 """
 import base64
 import gzip
@@ -32,7 +17,6 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import git  # noqa: E402
 
 LAB = re.compile(r"^scenarios/lab/([a-z0-9-]+)\.json$")
-BASELINE_DOC = "docs/sim-results/scenarios/{id}-baseline.{ext}"
 RULES = re.compile(r"pub const RULES_VERSION:\s*u32\s*=\s*(\d+)\s*;")
 
 
@@ -92,16 +76,11 @@ def shape_findings(label, text, rules_version, file_id=None):
         return [f"{label}: format is {d.get('format')!r} version {d.get('version')!r}, not legatum-scenario 1"]
     if file_id is not None and d.get("id") != file_id:
         out.append(f"{label}: id {d.get('id')!r} does not match the file name ({file_id})")
-    lab = d.get("lab")
-    if not isinstance(lab, dict) or not lab.get("question") or not lab.get("blurb"):
-        out.append(f"{label}: no Lab card with a question and a blurb, so the Lab cannot list it")
-    if not d.get("briefing") or not d.get("title"):
-        out.append(f"{label}: missing title or briefing")
+    if not d.get("title"):
+        out.append(f"{label}: missing title")
     obj = d.get("objective")
     if not isinstance(obj, dict) or not obj.get("summary") or not obj.get("turns") or not obj.get("score"):
         out.append(f"{label}: objective needs a summary, a turn window and a score")
-    if not d.get("baseline") and not (isinstance(lab, dict) and lab.get("requires")):
-        out.append(f"{label}: no recorded Hard AI baseline (tools/scenarios/cut.sh records one)")
     state = d.get("state")
     if not isinstance(state, dict) or not re.fullmatch(r"\d+", str(state.get("hash", ""))):
         out.append(f"{label}: no state with a hash")
@@ -122,7 +101,7 @@ def engine_command(root):
     if override:
         return shlex.split(override), None
     return [os.path.join(root, "target", "release", "legatum-sim"), "scenario-check"], \
-        ["cargo", "build", "-q", "--release", "-p", "legatum-sim"]
+        [os.path.join(root, "tools", "sim", "build-slot.sh"), "--", "cargo", "build", "-q", "--release", "-p", "legatum-sim"]
 
 
 def engine_findings(root, paths):
@@ -146,30 +125,8 @@ def engine_findings(root, paths):
     return out
 
 
-def lint_findings(root, paths):
-    """[reason] from the copy lint over PATHS."""
-    env = dict(os.environ, LEGATUM_LINT_SCENARIOS=":".join(paths))
-    override = os.environ.get("LEGATUM_SCENARIO_LINT")
-    if override:
-        argv, cwd = shlex.split(override), root
-    else:
-        app = os.path.join(root, "app")
-        if not os.path.isdir(os.path.join(app, "node_modules", "vitest")):
-            return [f"[copy] cannot run the copy lint: no vitest in {app}/node_modules; run `npm ci` in app/"]
-        argv, cwd = ["npx", "vitest", "run", "--config", "vitest.lint.config.ts"], app
-    try:
-        r = subprocess.run(argv, cwd=cwd, env=env, capture_output=True, text=True, timeout=180)
-    except (OSError, subprocess.TimeoutExpired) as e:
-        return [f"[copy] the copy lint could not run: {e}"]
-    if r.returncode == 0:
-        return []
-    found = [ln.strip()[1:].strip().strip('",') for ln in (r.stdout + r.stderr).splitlines()
-             if re.match(r"\s*[+]\s+\"", ln)]
-    return [f"[copy] {f[:240]}" for f in found] or [f"[copy] the copy lint failed: {(r.stdout + r.stderr).strip()[-300:]}"]
-
-
 def check_files(root, files, rules_version, engine=True):
-    """[finding] for FILES ({label: path on disk}) against RULES_VERSION: shape, then the engine and the copy lint
+    """[finding] for FILES ({label: path on disk}) against RULES_VERSION: shape, then the engine
     on the files whose shape is sound. ENGINE False skips the engine load (a rules version other than the
     checkout's)."""
     findings, sound = [], []
@@ -183,8 +140,6 @@ def check_files(root, files, rules_version, engine=True):
             sound.append(path)
     if sound and engine:
         findings += engine_findings(root, sound)
-    if sound:
-        findings += lint_findings(root, sound)
     return findings
 
 
@@ -205,11 +160,6 @@ def check(repo, tip, files):
             with open(out, "wb") as f:
                 f.write(data)
             paths[label] = out
-            sid = label[:-len(".json")]
-            for ext in ("json", "md"):
-                doc = BASELINE_DOC.format(id=sid, ext=ext)
-                if git(repo, "cat-file", "-t", f"{tip}:{doc}") is None:
-                    findings.append(f"{label}: the Hard AI baseline doc {doc} is missing (tools/scenarios/cut.sh writes it)")
         return findings + check_files(master_checkout(repo), paths, version)
     finally:
         import shutil

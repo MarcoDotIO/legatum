@@ -9,6 +9,7 @@ import { pingsFor } from '../teamPing';
 import './minimap.css';
 import { useCityAlarms } from '../ui/useCityAlarms';
 import { cityNear, drawMinimapBase, drawMinimapOverlay, minimapLayout, miniToWorld, type MinimapInk } from './minimapView';
+import { MapViewToggle } from '../map3d/MapViewToggle';
 
 // Civ-style minimap: the whole map at small scale, from the viewer's knowledge only. Desktop and
 // tablet get a corner panel under the turn dock (or beside it where the bottom row is free);
@@ -236,6 +237,7 @@ export function Minimap() {
       <button type="button" className="minimap-toggle" aria-expanded={!collapsed} aria-label={collapsed ? 'Show minimap' : 'Hide minimap'} onClick={toggle}>
         {collapsed ? <>{MAP_ICON}<span>Show map</span></> : <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M4 6l4 4 4-4" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" /></svg>}
       </button>
+      <MapViewToggle />
       {!collapsed && <MinimapCanvas view={view} maxW={budget.w} maxH={budget.h} label={label} onPick={(x, y, done) => {
         centerOnWorld(x, y);
         if (done) returnFocusToMap();

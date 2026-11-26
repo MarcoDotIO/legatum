@@ -25,6 +25,7 @@ beforeEach(() => {
   container = document.body.appendChild(document.createElement('div'));
   root = createRoot(container);
   useGame.setState(useGame.getInitialState(), true);
+  localStorage.setItem('legatum.research-view.v1', 'era');
 });
 
 it('keeps the piece card text to rule sentences, never leftovers of a stat line', () => {
@@ -193,11 +194,15 @@ it('research is a named native modal, focuses Close, traps both Tab directions, 
   expect(bubble.parentElement).toBe(dialog);
   expect(bubble.hidden).toBe(true);
 
-  key(close, 'Tab', { shiftKey: true });
-  const last = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), summary, [tabindex="0"]')].filter((el) => !el.closest('details:not([open])') || el.tagName === 'SUMMARY').at(-1)!;
+  // The first stop is the view switch (Tech tree / This era) in the head; Close has focus on open.
+  const stops = [...dialog.querySelectorAll<HTMLElement>('button:not(:disabled), summary, [tabindex="0"]')].filter((el) => !el.closest('details:not([open])') || el.tagName === 'SUMMARY');
+  const first = stops[0], last = stops.at(-1)!;
+  expect(first.dataset.testid).toBe('research-view-tree');
+  first.focus();
+  key(first, 'Tab', { shiftKey: true });
   expect(document.activeElement).toBe(last);
   key(last, 'Tab');
-  expect(document.activeElement).toBe(close);
+  expect(document.activeElement).toBe(first);
   focus(tip);
   expect(bubble.hidden).toBe(false);
   // Escape dismisses the current tooltip first, without dismissing its dialog.
@@ -382,23 +387,11 @@ it('hovering a faction tile never changes the sheet or the choice', () => {
   expect(onChange).not.toHaveBeenCalled();
 });
 
-it('seat selection and readiness are independent buttons and pending orders are named disclosures', async () => {
+it('readiness and pending orders are accessible controls', async () => {
   await game();
-  const toggleReady = vi.fn();
-  const setSeat = vi.fn();
-  useGame.setState({ toggleReady, setSeat, orders: [[{ type: 'SleepUnit', unit: 0 }], []] });
+  useGame.setState({ orders: [[{ type: 'SleepUnit', unit: 0 }], []] });
   render(createElement(SeatBar));
   expect(container.querySelector('button button')).toBe(null);
-  const ready = container.querySelector<HTMLButtonElement>('button.seat-ready')!;
-  expect(ready.getAttribute('aria-label')).toBe('Ada: ready');
-  expect(ready.getAttribute('aria-pressed')).toBe('false');
-  click(ready);
-  expect(toggleReady).not.toHaveBeenCalled();
-  const confirm = container.querySelector<HTMLDialogElement>('dialog.end-turn-confirmation')!;
-  expect(confirm.open).toBe(true);
-  click([...confirm.querySelectorAll('button')].find((b) => b.textContent === 'End turn anyway')!);
-  expect(toggleReady).toHaveBeenCalledWith(0);
-  expect(setSeat).not.toHaveBeenCalled();
   const disclosure = container.querySelector<HTMLButtonElement>('.orders-toggle')!;
   const orders = document.getElementById(disclosure.getAttribute('aria-controls')!)!;
   expect(orders.hidden).toBe(true);

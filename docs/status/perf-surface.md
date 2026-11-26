@@ -31,7 +31,8 @@ unwatched. First seeded 2026-11-22 from a code survey (`addEventListener`, `requ
 | Map draw (full and clipped frames) | camera, hover, pulses, selection | units, cities, pixels on screen | `frame_times` map draws; `battle-hover.cjs` |
 | Terrain chunk cache (render, stale repaint, field rebuild) | zoom, pan to new ground, each turn | explored land, device pixel ratio | `frame_times` long tasks; `window.legatumMap.terrain` counters |
 | Minimap and world backdrop loops | every frame while the map is up | map size | **unwatched** |
-| React renders on hover and selection (top bar width check, panels, tooltips) | pointer move, select | cities, panel content | `frame_times` input lag only; no per-component number |
+| React renders on hover and selection (top bar width check, panels, tooltips) | pointer move, select | cities, panel content | `frame_times` input lag, and long tasks less the named causes; no per-component number |
+| Engine calls made while hovering or planning (each one that takes the view parses all of it) | pointer move, select, panels | view size (over 1 MB late) | `frame_times` `long_engine_ms` |
 | Idle cost: frames drawn when nothing changes | a tab left open | nothing (should be zero) | **unwatched** (battery, fan) |
 | Combat effects, celebrations, the era reveal, score ledger animation | battles, wonders, era change | units in the fight | **unwatched** |
 | Sound: decode and mix | first gesture, every cue | cues per turn | **unwatched** |
@@ -68,6 +69,7 @@ unwatched. First seeded 2026-11-22 from a code survey (`addEventListener`, `requ
 | Surface | Trigger | Grows with | Watched by |
 | --- | --- | --- | --- |
 | Everything above on a phone CPU and GPU, on WebKit | playing on a phone | all of it | **unwatched**: every measurement so far is desktop Chromium; uploads carry no device class by design, only canvas size |
+| Safari and Firefox on a computer | playing there | all of it | not watched on purpose (user, 2026-11-25: tuned for Chrome only; the title screen says "Runs best in Chrome") |
 
 ## 7. Outside the player's browser
 
@@ -85,3 +87,8 @@ One line per sweep: date, the rows taken, what was measured, what changed in the
 
 - 2026-11-22: page seeded. No rows measured yet beyond what the day's fixes covered (hover redraw, upload
   replay, terrain cache after a turn).
+- 2026-11-24: engine calls on hover measured from a player's 132-turn game replayed with a profiler: the
+  found-city check sent the whole view per pointer move (fixed, one call per view). New row and a watcher
+  (`long_engine_ms`); long tasks now split into map drawing, terrain painting, engine calls and the rest.
+- 2026-11-25: other browsers measured from 36 players' games: 9 games with no long-task timing drew the map
+  at 7 to 42 ms a draw (Chrome: 1 to 2 ms). The user chose to tune for Chrome only and say so on the title screen.

@@ -1,7 +1,7 @@
 import { expect, it } from 'vitest';
 import { readdirSync } from 'node:fs';
-import { drawSite, drawWallsSite, wallsSiteStem } from './constructionFx';
-import { wallStem } from './cityArt';
+import { drawSite } from './constructionFx';
+import { footingsStem, wallStem } from './cityArt';
 import type { ConstructionSite } from './constructionSites';
 
 const recorder = () => {
@@ -30,14 +30,6 @@ it('draws no canvas line art for a wonder site at any stage', () => {
   }
 });
 
-it('draws no canvas line art for a Walls site', () => {
-  for (const k of [0, .3, .7, 1]) {
-    const r = recorder();
-    drawWallsSite(r.ctx, site(true), { x: 50, y: 50 }, 1, 1, k);
-    expect(r.out.filter(c => /^(stroke|strokeRect|lineTo|setLineDash|fillRect):/.test(c)), `k=${k}`).toEqual([]);
-  }
-});
-
 it('has the painted Walls footings for every era with a finished wall overlay, and nothing later', () => {
   const dir = (d: string) => new URL(`../assets/${d}/`, import.meta.url);
   const eras = readdirSync(dir('cities')).flatMap((f) => /^([a-z]+)-walls\.png$/.exec(f)?.[1] ?? []);
@@ -51,9 +43,9 @@ it('has the painted Walls footings for every era with a finished wall overlay, a
 });
 
 
-it('uses the Renaissance star fort for Swiss Walls at every construction stage', () => {
+it('uses the Renaissance star fort for Swiss Walls footings, and the era ring for everyone else', () => {
   for (const era of [0, 1, 2, 3, 4, 5, 6]) {
-    expect(wallsSiteStem({ ...site(true), era }, 'Switzerland')).toBe('renaissance-walls');
-    expect(wallsSiteStem({ ...site(true), era }, 'Athens')).toBe(wallStem(era, false));
+    expect(footingsStem(era, true)).toBe('renaissance-walls-footings');
+    expect(footingsStem(era, false)).toBe(`${wallStem(era, false)}-footings`);
   }
 });

@@ -18,7 +18,7 @@ fn main() -> Result<(), String> {
     let a: Vec<String> = std::env::args().collect();
     let file = ScenarioFile::parse(&std::fs::read_to_string(&a[1]).map_err(|e| e.to_string())?)?;
     let run: u32 = a[2].parse().map_err(|_| "run must be a number")?;
-    let mut start = file.prepare(false)?;
+    let mut start = file.prepare()?;
     start.setup.seed = if run == 0 {
         start.setup.seed
     } else {

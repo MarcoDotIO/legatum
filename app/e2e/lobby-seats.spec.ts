@@ -52,7 +52,7 @@ for (const [width, height] of [[1000, 600], [1440, 900]] as const) {
     await page.setViewportSize({ width, height });
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^Single Player/ }).click();
-    const group = page.getByRole('radiogroup', { name: 'AI level (all AI empires)', exact: true });
+    const group = page.getByRole('radiogroup', { name: 'AI level', exact: true });
     await expect(group.getByRole('radio', { name: /^Hard/ })).toBeVisible();
     const gutters = await group.getByRole('radio').evaluateAll((buttons) =>
       buttons.map((b) => {

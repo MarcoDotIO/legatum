@@ -31,6 +31,7 @@ describe('the score check model', () => {
     const card = scoreCheckFor(view, 3, view.me);
     expect(card.track).toHaveLength(11);
     expect(card.track[5].pieces.map((p) => p.faction)).toEqual(['Mongols']);
+    expect(card.track[5].pieces.map((p) => p.name)).toEqual(['Mongols']);
     expect(card.track[3].pieces.some((p) => p.isMine)).toBe(true);
     expect(card.standing).toBe('You: 3 VP, tied 2nd with Celts and Switzerland.');
     expect(card.leader).toBe('Leader: Mongols, 5 VP.');
@@ -129,6 +130,7 @@ describe('the takeover', () => {
     const t = host.querySelector('[data-testid=score-check]')!;
     expect(t.querySelector('.sc-kicker')?.textContent).toBe('The Medieval Age begins · Turn 92');
     expect(t.querySelectorAll('[data-testid=score-track] li')).toHaveLength(11);
+    expect(t.querySelector('.sc-piece[data-vp="5"]')?.getAttribute('title')).toBe('Mongols: 5 VP');
     expect([...t.querySelectorAll('.sc-row[data-line] .sc-name b')].map((b) => b.textContent)).toEqual(['Age cards', 'Rival capitals', 'World wonders', 'Faction goal']);
     expect(t.querySelector('.sc-row.fresh')?.getAttribute('data-line')).toBe('ages');
     // The boxes draw the thing that scores: the wonder's icon, the capital's star.

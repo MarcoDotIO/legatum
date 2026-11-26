@@ -584,6 +584,12 @@ p {
 .title-actions .btn.big.quiet {
   color: var(--ink-2);
 }
+/* The menu's rise animation holds opacity at 1, so `.btn:disabled`'s fade never shows here: a disabled
+   item's label is dimmed by its ink instead, clearly fainter than the quiet items around it. The sub-line stays
+   at --muted: it is small text, and it carries the reason the item is disabled, so it keeps AA contrast. */
+.title-actions .btn.big:not(.primary):disabled {
+  color: color-mix(in srgb, var(--muted) 45%, transparent);
+}
 .title-actions .btn.quiet:not(.big) {
   margin-top: 12px;
 }
@@ -626,6 +632,12 @@ dialog.settings-modal::backdrop {
 .settings-body {
   padding: 4px 24px 12px;
 }
+/* A short window (the 1000x600 laptop) with every row showing: tighter rows, so the dialog is whole without scrolling.
+   The body still scrolls as a last resort on a shorter window than that. */
+dialog.settings-modal {
+  max-height: calc(100dvh - 24px);
+  overflow: hidden auto;
+}
 .settings-body > .settings-row,
 .settings-body > .hint-settings {
   justify-content: space-between;
@@ -635,6 +647,22 @@ dialog.settings-modal::backdrop {
 }
 .settings-body > :first-child {
   border-top: 0;
+}
+@media (max-height: 700px) {
+  .settings-head {
+    padding: 12px 24px 10px;
+  }
+  .settings-head h2 {
+    font-size: 26px;
+  }
+  .settings-body > .settings-row,
+  .settings-body > .hint-settings {
+    min-height: 0;
+    padding: 8px 0;
+  }
+  .settings-body {
+    padding-bottom: 6px;
+  }
 }
 .settings-body .seg.small button {
   min-width: 84px;
@@ -682,7 +710,12 @@ dialog.settings-modal::backdrop {
   letter-spacing: 0.24em;
   text-transform: uppercase;
   color: var(--ink-2);
+  flex-wrap: wrap;
+  gap: 6px 24px;
 }
+/* Neither footer line breaks mid-phrase: on a narrow screen the browser note takes its own row, right-aligned. */
+.title-foot span { white-space: nowrap; }
+.title-foot-note { margin-left: auto; }
 /* Short windows: tighten the vertical rhythm. */
 @media (max-height: 820px) {
   .title-inner::before {
@@ -711,8 +744,7 @@ dialog.settings-modal::backdrop {
 @media (max-height: 920px) {
   .title-actions .btn.big:not(.primary) { padding: 4px 16px 2px; }
 }
-/* Laptop heights up to 760px: the Scenarios entry added a row, so tighten the menu one step so
-   every entry fits inside the slip. */
+/* Keep the title menu inside the slip at laptop heights. */
 @media (max-height: 760px) {
   .title-menu { margin-top: 20px; }
   .title-settings { margin-top: 6px; padding-top: 6px; }
@@ -1007,9 +1039,6 @@ dialog.settings-modal::backdrop {
   .topbar[data-compact~='tight'] .turn { padding-inline: 12px; }
   .topbar[data-compact~='erachip'] .turn-year { display: none; }
   .topbar[data-compact~='tight'] .brand { padding: 0 16px; }
-  /* The sidebar names the ledger too; free this label before shortening the research prompt. */
-  .topbar[data-compact~='score'] .vh-chip-label { display: none; }
-  .topbar[data-compact~='score'] .vh-chip { padding-inline: 8px; }
   .topbar[data-compact~='brand'] .brand { display: none; }
   /* The Switzerland' hoard readout is also in the race row and the Gold tooltip. */
   .topbar[data-compact~='hoard'] .gold-hoard-readout { display: none; }
@@ -1032,7 +1061,6 @@ dialog.settings-modal::backdrop {
   /* The city glyph is 15px wide; 4px gutters plus the border keep a 24px hit area. */
   .topbar[data-compact~='cities'] .tb-nav-cities { padding-inline: 4px; letter-spacing: 0; }
   .topbar[data-compact~='cities'] .tb-nav-cities .tb-label { display: none; }
-  .topbar[data-compact~='nav'] .tb-nav-tech { display: none; }
 }
 .supply-stat .icon { color: var(--supply-ink, #b4533f); }
 .supply-stat .supply-name { font-size: 13px; }
@@ -2453,19 +2481,6 @@ dialog.settings-modal::backdrop {
 .vp:not(.open) > * {
   flex: none;
 }
-.vp:not(.open) > .vp-rows {
-  flex: 0 1 auto;
-  min-height: 0;
-  overflow-y: auto;
-  scrollbar-width: thin;
-}
-.vp-rows {
-  padding: 4px 0 4px;
-}
-/* More rows below (a short window): "N more" in the footer says so and pages them. No fade over the rows: it nibbled the last whole row. */
-.vp:not(.open) > .vp-rows.scrolls {
-  box-shadow: inset 0 -1px 0 var(--rule-2);
-}
 .vp-more {
   margin-right: 12px;
   font: 600 11px/1 var(--sans);
@@ -2594,19 +2609,10 @@ dialog.settings-modal::backdrop {
   .game .seatbar .ph { padding-block: 8px 6px; }
   .game .seatbar .ph-sub:not(:has(.last-turn)) { display: none; }
   .game .seatbar .seat { min-height: 40px; padding: 4px 12px; column-gap: 8px; grid-template-columns: 24px minmax(0, 1fr) auto auto; }
-  .game .seatbar .seat > .medallion,
-  .game .seatbar .seat-select > .medallion { width: 24px !important; height: 24px !important; }
+  .game .seatbar .seat > .medallion { width: 24px !important; height: 24px !important; }
   .game .seatbar .seat .medallion > .faction-mark { width: 16px !important; height: 16px !important; }
   .game .seatbar .seat-name { font-size: 17px; }
   .game .seatbar .seat-meta { margin-top: 1px; }
-  /* A local (hot-seat) row is one line: crest, name, order count, Ready toggle, key. */
-  .game .seatbar .local-seat { grid-template-rows: auto; }
-  .game .seatbar .seat-select { grid-row: 1; grid-template-columns: 24px minmax(0, max-content) auto; justify-content: start; align-items: center; }
-  .game .seatbar .seat-select > .medallion { grid-row: 1; }
-  .game .seatbar .seat-select > .seat-name { align-self: center; }
-  .game .seatbar .seat-select > .seat-meta { grid-column: 3; grid-row: 1; align-self: center; margin: 1px 0 0; white-space: nowrap; }
-  .game .seatbar .seat-select > .seat-name { min-width: 0; }
-  .game .seatbar .local-seat > .seat-readiness, .game .seatbar .local-seat > .kbd { grid-row: 1; }
   .game .seatbar .cta { height: 56px; margin: 10px 16px 2px; gap: 4px; }
   .game .seatbar .cta-production { height: auto; min-height: 56px; padding: 8px 12px; }
   .game .seatbar .cta-long { height: auto; min-height: 56px; padding: 8px 12px; }
@@ -2975,12 +2981,11 @@ dialog.settings-modal::backdrop {
 .forecast {
   width: 320px;
 }
+/* The head says what happens, in words: the kind, then the outcome in the display face, then who takes more damage (user, 2026-11-25). */
 .forecast-head {
-  display: flex;
-  gap: 10px;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 12px 16px 8px;
+  display: grid;
+  gap: 4px;
+  padding: 12px 16px 10px;
   border-bottom: 1px solid var(--frame);
 }
 .forecast-kind {
@@ -2990,8 +2995,16 @@ dialog.settings-modal::backdrop {
   color: var(--label-color);
 }
 .forecast-verdict {
-  font: var(--display-weight) 22px/1 var(--display);
+  font: var(--display-weight) 22px/1.1 var(--display);
+  color: var(--ink);
 }
+.forecast-outcome {
+  font: 500 13px/1.3 var(--sans);
+  color: var(--ink-2);
+}
+/* The HP trade carries its own colour and a ▲/▼ sign; the title's colour follows the title's claim (UI review, PR 157). */
+.forecast-outcome.good { color: var(--good); }
+.forecast-outcome.bad { color: var(--bad); }
 .forecast-head.good .forecast-verdict {
   color: var(--good);
 }
@@ -3038,6 +3051,15 @@ dialog.settings-modal::backdrop {
   margin: 4px 0;
   font: 600 22px/1 var(--num-font);
 }
+/* Civ shows combat strength as a number with a label: the label says what the big number is. */
+.fside-str-label {
+  margin: 0 6px;
+  font: 600 10px/1 var(--sans);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--label-color);
+  vertical-align: 3px;
+}
 .hpbar {
   display: flex;
   height: 4px;
@@ -3058,6 +3080,11 @@ dialog.settings-modal::backdrop {
   font-size: 12px;
   color: var(--ink-2);
 }
+/* The forecast's health bar is tall enough to read, and its loss is named in words beside the numbers (user, 2026-11-25). */
+.fside .hpbar { height: 8px; border-radius: 2px; overflow: hidden; }
+.fside-hp-word { font: 600 10px/1 var(--sans); letter-spacing: 0.12em; text-transform: uppercase; color: var(--label-color); margin-right: 2px; }
+.fside-lost { color: var(--bad); font-weight: 600; }
+.fside-delta { margin-top: 1px; font-size: 12px; }
 .forecast-odds {
   display: grid;
   grid-template-columns: 1fr 1fr;
@@ -3198,7 +3225,7 @@ dialog.settings-modal::backdrop {
   /* The lock card also gives up the city-fire sentence's tail (the HP line under the bar already says the fire is included) and some padding. */
   .forecast:has([data-testid='forecast-occupation-lock']) .forecast-included { display: none; }
   .forecast:has([data-testid='forecast-occupation-lock']) .forecast-risk { margin-bottom: 3px; }
-  .forecast:has([data-testid='forecast-occupation-lock']) .forecast-head { padding: 6px 16px 4px; }
+  .forecast:has([data-testid='forecast-occupation-lock']) .forecast-head { padding: 6px 16px 4px; gap: 2px; }
   .forecast:has([data-testid='forecast-occupation-lock']) .fside-str { margin: 2px 0; }
   .forecast:has([data-testid='forecast-occupation-lock']) .fside-hp { margin-top: 2px; }
   .forecast:has([data-testid='forecast-occupation-lock']) .forecast-assault { margin-bottom: 2px; }
@@ -3235,6 +3262,7 @@ dialog.settings-modal::backdrop {
   font-family: var(--num-font);
 }
 .forecast-summary-verdict {
+  flex-basis: 100%;
   font: var(--display-weight) 18px/1 var(--display) !important;
 }
 .forecast-summary-verdict.good { color: var(--good); }
@@ -4078,35 +4106,6 @@ dialog.gameover::backdrop {
   letter-spacing: 0;
   vertical-align: middle;
 }
-.vp-player {
-  position: relative;
-  display: inline-flex;
-  margin-right: 8px;
-}
-.vp-player .player-badge {
-  position: absolute;
-  right: -8px;
-  bottom: -3px;
-}
-.local-seat {
-  column-gap: 8px;
-  padding: 8px 12px;
-}
-.seat-select {
-  grid-column: 1 / 3;
-  grid-row: 1 / 3;
-  display: grid;
-  grid-template-columns: 36px minmax(0, 1fr);
-  column-gap: 8px;
-  text-align: left;
-}
-.seat-select > .medallion {
-  grid-row: 1 / 3;
-}
-.seat-readiness {
-  grid-column: 3;
-  grid-row: 1 / 3;
-}
 .city-list {
   border-bottom: 1px solid var(--rule);
   font-size: 12px;
@@ -4180,7 +4179,7 @@ dialog.gameover::backdrop {
 .city-panel .cp-head { padding: 6px 12px 4px; }
 .city-panel .cp-name { font-size: 28px; margin-top: 5px; }
 .city-panel .cp-meta { margin-top: 6px; gap: 4px 10px; }
-.city-panel .cp-meta > .tip-trigger { display: inline-flex; align-items: center; gap: 4px; }
+.city-panel .cp-meta > .tip-trigger { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
 .city-panel .cp-block { padding: 8px 14px 0; }
 .city-panel .production-queue { padding-top: 2px; }
 .city-panel .production-choose-block { padding-top: 4px; }
@@ -4194,8 +4193,11 @@ dialog.gameover::backdrop {
 /* The sticky head is a name and three numbers on one line at every window height (1440x900 used to wrap Health onto a second
    line and spend 110 px; astra full review 2026-10-31, section 3). */
 .city-panel .cp-head { padding-top: 4px; padding-bottom: 2px; }
-.city-panel .cp-meta { margin-top: 3px; gap: 3px 10px; font-size: 10px; flex-wrap: nowrap; }
+.city-panel .cp-meta { margin-top: 3px; gap: 3px 8px; font-size: 10px; flex-wrap: nowrap; white-space: nowrap; }
 .city-panel .cp-meta .lbl { font-size: 9px; }
+/* A walled city adds Walls to the head: the row may take a second line rather than clip (breakable Walls). */
+.city-panel .cp-meta.cp-meta-walls { flex-wrap: wrap; }
+.city-panel .cp-meta.cp-meta-walls > .cp-break { flex-basis: 100%; height: 0; }
 .city-panel .cp-meta b { font-size: 12px; }
 .city-panel .cp-pop { width: 18px; height: 18px; }
 /* A taller window (over 700 px) has the room for a larger head. */
@@ -4242,7 +4244,8 @@ dialog.gameover::backdrop {
 .upgrade-detail > span:last-child { min-width: 0; overflow-wrap: break-word; }
 .upgrade-detail .item-art { width: 32px; height: 32px; flex: none; }
 .upgrade-queue { flex: none; min-height: 26px; padding: 2px 6px; border: 1px solid var(--rule-2); background: var(--field); color: var(--accent); font: 600 10px/1.1 var(--sans); cursor: pointer; }
-.upgrade-queue:disabled { cursor: not-allowed; color: var(--muted); }
+.upgrade-queue:disabled { cursor: not-allowed; color: var(--muted); border-style: dashed; background: transparent; opacity: .6; }
+.unit-better { margin: 0 0 2px 10px; padding-left: 8px; border-left: 1px solid var(--rule-2); }
 .upgrade-children { margin-left: 9px; padding-left: 7px; border-left: 1px solid var(--rule); }
 .upgrade-queue:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .production-choice > .tip-trigger { min-width: 0; }
@@ -4412,12 +4415,6 @@ dialog.gameover::backdrop {
   color: var(--muted);
 }
 
-/* Hot seat hand-off: an opaque cover so the next player does not see the previous player's empire. */
-.handoff-screen { position: absolute; inset: 0; z-index: 60; display: grid; place-items: center; background: var(--bg, #1a1712); }
-.handoff-card { display: grid; justify-items: center; gap: 12px; padding: 32px 40px; background: var(--panel); border: 6px solid transparent; border-image: var(--frame-image); text-align: center; color: var(--ink); }
-.handoff-card h2 { font: var(--display-weight) 32px/1.1 var(--display); margin: 0; }
-.handoff-card p { margin: 0; color: var(--ink-2); }
-
 /* At 14px the one-line build effects clipped their key facts ("costs 1 pop"): wrap instead. */
 
 .city-panel .cp-head { position: sticky; top: 0; z-index: 3; background: var(--panel); border-bottom: 1px solid var(--rule); }
@@ -4518,3 +4515,5 @@ dialog.gameover::backdrop {
 .rival-offer { display: inline-flex; flex-direction: column; gap: 2px; }
 .rival-cost { color: var(--bad); font-weight: 600; }
 .alarm-block .rival-win, .hold-block .rival-win { margin-bottom: 14px; }
+.fside-walls-bar { margin-bottom: 2px; }
+.fside-walls-bar + .fside-hp + .fside-delta, .fside-walls-bar + .fside-hp { margin-bottom: 6px; }

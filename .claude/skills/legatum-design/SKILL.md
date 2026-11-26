@@ -21,6 +21,7 @@ Current principles and decisions, one line each with date and who. The user's fu
 - **Every tech a faction researches gives it something** (user, 2026-11-22). Researching is never a trade-off against yourself (user, 2026-11-01).
 - **Rock-paper-scissors:** rush beats greedy expansion, Walls and archers beat rush, greedy expansion out-scales turtles. Early rushes may be final; the counter is scouting, then Walls and archers (user, 2026-10-17).
 - **Walls are strong but beatable** and cost 100 Production (user, 2026-10-07, 2026-11-06). Bombers are meant to be very strong; Fighters and air superiority are the counter; never nerf Bombers or move Flight as a pacing fix (user, 2026-11-10, 2026-11-13).
+- **Walls may be upgraded through the owner's era number** (Sam, 2026-11-22): each new level costs Production or Gold and adds era-scaled city strength; Siege covers only the levels its tier reaches. This is the explicit Walls exception to the general preference against arbitrary caps.
 - **The unit triangle ends at the Modern era** (user, 2026-10-20). One unit per class per era with small jumps (user, 2026-10-10); power jumps grow in later eras (user, 2026-10-18).
 - **Each era is defined by its resource,** revealed by a tech of the era it is used in; deposits are deliberately not placed fairly; resources are a reason for war (user, 2026-10-22, 2026-11-07).
 - **Conquest is the fastest economy and winning is zero-sum** (user, 2026-10-07/08). A leader may run away if the others can respond; rubber bands keep it close (pillar 11).
@@ -43,8 +44,12 @@ Current principles and decisions, one line each with date and who. The user's fu
 
 ## Current decisions worth knowing before proposing
 
+- Hot seat removed (user, 2026-11-23): multiplayer is online lobby only.
+
 - Victory: hold the VP target for 10 turns, or take every capital (user, 2026-10-06, 2026-11-15). Every faction goal is worth exactly 2 VP. Crowns and decadence are deleted (user, 2026-11-11).
 - Game length (Sam, 2026-11-23): his games end T141 to T168 by conquest, in the World War era; the tech pace is steady. Offered every tech 20% cheaper plus a VP target of 12 (`docs/sim-results/game-length/README.md`); he chose no change yet: fix the Hard AI and Walls levels first, then re-measure his games. A 10th era was not added (he sees no historical gap, and his games never reach the end of the tree).
+- Breakable Walls (2026-11-25): Walls work like Civ's outer defence. A one-time Walls bar (100, +50 per level, capped by era) sits in front of the city's regenerating health; it never regrows, is repaired or rebuilt only with Production, and not while the city is under attack; once broken the Walls are gone and must be built again. Upgrades cost more than a unit. Flat +50 per level chosen over a percentage ("use your judgment"): damage depends on the strength difference, so a flat bar already scales with eras. Without Siege, hits do half damage to the bar.
+- Turn-500 backstop (2026-11-25): a game with no configured turn limit ends at turn 500 and the team with the most VP wins (tie draws), like Civ's score victory. Chosen over patching the AI seed by seed or letting a test accept stalls: duels where neither side can win stalled about 2% of the time on master too.
 - Era scoring is World Ages only (owner, 2026-11-22, rules 50): the three-objective era arm and its switch are deleted; iterate on World Ages itself (cards, counts, pacing). Each Age's pool has three peaceful cards every faction can reach; one card is drawn per Age.
 - At Peace, strength settles a contested tile (Sam, 2026-11-22, rules 51): units of empires not at War stepping onto one tile never both bounce; the team with the most combined strength among its claimants moves in (as force decides a fallen city), nobody fights, ties are a seeded draw; an exact force tie at a fallen city is a seeded draw too. Nobody is pushed off a tile they already stand on.
 - Fable review batch (Sam, 2026-11-22, rules 50): a rival's original capital is 1 VP only while held (the Celtic sack keeps its point for good); Alliance upkeep is waived while at War with a near-winner; same-turn ties between empires are drawn by seed; co-op Gold gifts to a teammate exist; `no_purchase_under_threat` is an off-by-default experiment. First pass the owner may veto: wonder prices on one era curve, Star Fort at Machinery. Details: `references/decided-2026-10-31-onward.md`.
@@ -57,7 +62,7 @@ Current principles and decisions, one line each with date and who. The user's fu
 - Every city can run a Gold or Science project when nothing is worth building, at a much lower rate than Germany's (25% / 10% against 50% / 25%; Egypt converts its Food-funded progress), and since rules 55 a Food project (25% of Production as Food, the same for Germany; Nile Egypt uses Grow instead).
 - City automation focuses (Sam, 2026-11-22, rules 55): Military (the newest units the empire's strategic resources allow, never outdated ones), Economy (buildings and improvements, never units) and three streams where the player picks the Gold, Science or Food project and the city runs it. Balanced is gone; Settlers and Scouts are never automated. Automation and the AI never fill a queue with Scouts or outdated units (Sam, 2026-11-22: a finished Gold city built Scouts at turn 100; he left rates, Food and Egypt to the lead's judgment, "the game needs to feel premium").
 - Resolution order when a defender slips into a besieged city: slip in, then ranged, then melee (user, 2026-11-21).
-- Saves from other rules versions are refused; no migrations (user, 2026-10-31).
+- Saves from other rules versions are refused; no migrations (user, 2026-10-31). The hosted site opens an old game in the build that made it.
 - Going back a turn is allowed in local games (Sam, 2026-11-22): save-scumming is acceptable, because training should learn only from moves the player meant. Menu → Load an earlier turn opens any of the last 10 autosaved turns; the uploaded record keeps only the line played on and lists each rewind (`rewinds`). Online games cannot go back (the host would rewind everyone).
 - Rules freeze: lifted 2026-11-11 (user). Talk before building tech-tree changes (user, 2026-11-01).
 
@@ -70,7 +75,8 @@ Use a short template: broken rule, flavour-linked constraint, path to 10 VP, vis
 - Every missing Civ 6 system has a recorded reason in the rules reference (`not-in-game.md`) (user, 2026-10-18).
 
 ## Rejected ideas (don't re-propose without new evidence)
-- For Humble the mighty's dead card for the leader (owner, 2026-11-22): a default 300-turn limit (no turn limit by default stays the design), a per-empire redraw of a card it cannot score (breaks the one shared card per Age), and leaving it as it was.
+- **Player-facing Scenario Lab (Sam, 2026-11-22):** removed from the game because it had not proven useful to him. Keep the existing positions for AI measurement; do not add a title-screen list, briefing, result or feedback workflow.
+- For Humble the mighty's dead card for the leader (owner, 2026-11-22): a default 300-turn limit (no turn limit by default stayed the design until the turn-500 backstop of 2026-11-25, above), a per-empire redraw of a card it cannot score (breaks the one shared card per Age), and leaving it as it was.
 - A fungible production pool that carries over to any item (too exploitable; the user rejected it).
 - The map-reveal ruin reward ("cartographer's cache"): it felt useless, so it was removed on 2026-10-03. Ruin rewards should be things you feel.
 - Removing tech diffusion: it's a rubber band that keeps games competitive (pillar 11). Keep it, and make it visible in research forecasts.

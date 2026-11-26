@@ -64,6 +64,9 @@ pub struct FundDelivery {
 #[serde(default)]
 pub struct CampaignMemory {
     pub active: Option<Campaign>,
+    /// Gene `rome_opening_march`: the early city objective, retained through plan reviews.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rome_opening_target: Option<CityId>,
     /// A Gold-fund recruit or refit keeps the objective it was paid for until it reaches
     /// the front. The purchase resolves after planning, so its unit id is bound next turn.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -90,6 +93,27 @@ pub struct CampaignMemory {
     /// within spacing), so it rescouts instead of ordering the same found again.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub found_tried: Vec<(UnitId, legatum_core::Hex, u32)>,
+    /// Gene `rome_opening_finish` (`rome_finish.rs`): the rival the opening went to war with.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rome_victim: Option<legatum_core::PlayerId>,
+    /// Gene `rome_walled_peace`: the opening stalled at observed Walls, allowing an early
+    /// second war even after Peace clears the captured city's occupation record.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub rome_walled_peace_window: bool,
+    /// Gene `rome_second_war`: the soft city and its owner held after the first victim.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rome_second_target: Option<CityId>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub rome_second_enemy: Option<TeamId>,
+    /// Gene `rome_found_now` (`rome_found_now.rs`): the site each Roman veteran is walking to,
+    /// kept until it founds there or the site stops being legal.
+    #[serde(default, skip_serializing_if = "std::collections::BTreeMap::is_empty")]
+    pub rome_found_sites: std::collections::BTreeMap<UnitId, legatum_core::Hex>,
+    /// Gene `rome_recruit_captures` (`rome_found_now.rs::rome_capture_guard`): fallen enemy
+    /// cities whose capture waited a turn for a recruit (city tile, turn). At most one turn in a
+    /// row.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub rome_capture_waits: Vec<(legatum_core::Hex, u32)>,
     /// Gene `rome_colonia` (`goal_colonia.rs::colonia_lock_guard`): enemy cities whose capture
     /// waited a turn so the Colonia's founder would not be locked in them (city tile, turn).
     /// A capture waits at most one turn in a row.
@@ -257,12 +281,12 @@ impl Planner<'_> {
         }
         aged.population = city.population + (self.city_age(city) / 16).min(5);
         aged.hp = aged.max_hp;
-        aged.strength = legatum_core::combat::city_defense_for_rules(
+        aged.strength = legatum_core::combat::city_defense_vs(
             v.rule_experiments,
             v.faction_of(city.owner),
             aged.population,
-            aged.walls,
-            aged.fort_tier(),
+            u8::from(aged.walls) + aged.fort_tier(),
+            crate::analysis::viewer_siege_cover(v),
             aged.hp,
             v.era_of(city.owner),
         )
@@ -722,7 +746,8 @@ impl Planner<'_> {
             .filter(|u| u.military && u.pos == city.pos && u.owner == city.owner)
             .map(|u| threat_power(self.view(), u))
             .sum();
-        let need = city.strength + garrison + if city.walls { city.strength / 2 } else { 0 };
+        let strength = crate::analysis::city_strength_vs_viewer(self.view(), city);
+        let need = strength + garrison + if city.walls { strength / 2 } else { 0 };
         mine * 100 >= need.max(1) * self.attack_threshold()
     }
 
@@ -987,7 +1012,8 @@ impl Planner<'_> {
             .filter(|u| u.military && u.owner == city.owner && u.pos == city.pos)
             .map(|u| threat_power(v, u))
             .sum();
-        let defenders = city.strength + garrison + if city.walls { city.strength / 2 } else { 0 };
+        let strength = crate::analysis::city_strength_vs_viewer(v, city);
+        let defenders = strength + garrison + if city.walls { strength / 2 } else { 0 };
         ours * 2 >= defenders.max(1)
     }
 

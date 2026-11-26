@@ -1,4 +1,4 @@
-// Screen tour, the Guide's chapters that carry rules text for factions, combat, diplomacy and the victory race.
+// Screen tour, How to Play's chapters that carry rules text for factions, combat, diplomacy and the victory race.
 // Each chapter's text is also written to test-results/guide-text/<size>/<chapter>.txt for the copy review.
 // Run alone with `npx playwright test e2e/tour/guide-chapters`. Shots land in test-results/screen-tour/<size>/guide-chapters/.
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -19,7 +19,7 @@ const CHAPTERS = [
 for (const size of SIZES) test.describe(`screen tour ${size.name}`, () => {
   test.use({ viewport: { width: size.width, height: size.height } });
 
-  test('the Guide: combat, victory race and peoples chapters', async ({ page }) => {
+  test('How to Play: combat, victory race and peoples chapters', async ({ page }) => {
     await page.goto('/?client=wasm');
     await page.getByRole('button', { name: /^How to Play/ }).click();
     const guide = page.getByRole('dialog', { name: 'How to Play', exact: true });

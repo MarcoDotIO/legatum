@@ -4,7 +4,7 @@
 // water gets a sea name, a cluster of mountains a range name, and open land a region name.
 import type { PlayerView, Terrain } from '../types';
 import { centerX, centerY, neighborIndex } from './grid';
-import { hashString, rnd } from './noise';
+import { hashString } from './noise';
 
 export interface MapLabel {
   text: string;
@@ -15,58 +15,57 @@ export interface MapLabel {
   angle: number;
 }
 
-const SEAS = [
-  'The Sundering Sea',
-  'The Glass Deep',
-  'Sea of Quiet Stars',
-  'The Hollow Gulf',
-  'Bay of Embers',
-  'The Tidewrack',
-  'Sea of Heirs',
-  'The Drowned India',
-  'Gulf of Vesper',
-  'The Silent Mere',
-  'The Long Water',
-  'The Cinder Strait',
-  'Sea of Lanterns',
-  'The Mirror Deep',
-  'The Brine Crown',
-  'Gulf of Ash',
-  'The Starfall Sea',
-  'The Grey Abyss',
-];
-const RANGES = [
-  'Spine of Tesk',
-  'The Iron Teeth',
-  'The Shattered Crowns',
-  'The Hollow Peaks',
-  'The Warden Range',
-  'Spires of Cadence',
-  'The Broken Stair',
-  'The Anvil Heights',
-  'The Mourning Ridge',
-  'The Sentinel Crags',
-];
-const REGIONS: Record<string, string[]> = {
-  Forest: ['The Greenwold', 'Thornwood', 'The Old Canopy', 'Mossreach', 'The Deepwood', 'Vesperwood'],
-  Desert: ['The Ashen Waste', 'The Glasslands', 'The Sunscar', 'The Amber Barrens', 'Dust of Kings'],
-  Tundra: ['The Pale Reach', 'Frostmarch', 'The White Silence', 'Rimeholt'],
-  Hills: ['The Tumbled Downs', 'The Cairnlands', 'The Rolling Wolds', 'The Barrowfold'],
-  Open: ['Verdance', 'The Gilded Steppe', 'Harrowfield', 'The Meadowmarch', 'Lanternvale', 'The Wide Accord', 'Emberfield', 'The Throne Lands'],
+// Names are plain geography, as an old atlas letters a land nobody has named yet ("The Northern Sea",
+// "The Great Desert"): where the place lies on the map, then what it is. Legatum is grounded in real
+// history, so no invented fantasy names (user, 2026-11-25). `{D}` is the compass word for the map
+// ninth the place lies in; the middle ninth has its own list.
+type Feature = 'Sea' | 'Range' | 'Forest' | 'Desert' | 'Tundra' | 'Hills' | 'Open';
+const OUTER: Record<Feature, string[]> = {
+  Sea: ['The {D} Sea', 'The {D} Gulf', 'The {D} Straits', 'The {D} Deep'],
+  Range: ['The {D} Mountains', 'The {D} Range', 'The {D} Heights', 'The {D} Peaks'],
+  Forest: ['The {D} Forest', 'The {D} Woods', 'The {D} Woodlands', 'The {D} Wilds'],
+  Desert: ['The {D} Desert', 'The {D} Sands', 'The {D} Dunes', 'The {D} Drylands'],
+  Tundra: ['The {D} Tundra', 'The {D} Wastes', 'The {D} Snowfields', 'The {D} Barrens'],
+  Hills: ['The {D} Hills', 'The {D} Uplands', 'The {D} Ridges', 'The {D} Highlands'],
+  Open: ['The {D} Plains', 'The {D} Steppe', 'The {D} Lowlands', 'The {D} Grasslands'],
 };
+const MIDDLE: Record<Feature, string[]> = {
+  Sea: ['The Inner Sea', 'The Middle Sea', 'The Great Gulf', 'The Middle Straits'],
+  Range: ['The Central Mountains', 'The Great Divide', 'The High Passes', 'The Middle Range'],
+  Forest: ['The Great Forest', 'The Central Woods', 'The Deep Forest', 'The Middle Woodlands'],
+  Desert: ['The Great Desert', 'The Open Desert', 'The Central Sands', 'The Inner Drylands'],
+  Tundra: ['The Great Tundra', 'The Cold Plain', 'The Central Wastes', 'The Inner Snowfields'],
+  Hills: ['The Central Hills', 'The High Country', 'The Middle Uplands', 'The Inner Ridges'],
+  Open: ['The Great Plain', 'The Heartland', 'The Central Steppe', 'The Middle Lowlands'],
+};
+const COMPASS = ['North-Western', 'Northern', 'North-Eastern', 'Western', '', 'Eastern', 'South-Western', 'Southern', 'South-Eastern'];
+
+/** Which third of the map the middle of cell `i` of `n` lies in (0, 1 or 2). */
+const third = (i: number, n: number) => Math.min(2, Math.floor(((i + 0.5) * 3) / n));
+
+/**
+ * The name of a feature in grid cell (gx, gy). Cells that share a map ninth take the list's names in
+ * grid order, so a place keeps its name however much of the map is explored; `salt` turns the list
+ * per game. Null when the ninth has more cells than names (the place then goes unlettered).
+ */
+export function placeName(feature: Feature, gx: number, gy: number, nx: number, ny: number, salt: number): string | null {
+  const sector = third(gy, ny) * 3 + third(gx, nx);
+  let rank = 0;
+  for (let y = 0; y <= gy; y++)
+    for (let x = 0; x < nx; x++) {
+      if (y === gy && x >= gx) break;
+      if (third(y, ny) * 3 + third(x, nx) === sector) rank++;
+    }
+  const list = sector === 4 ? MIDDLE[feature] : OUTER[feature];
+  if (rank >= list.length) return null;
+  const turn = (salt ^ hashString(feature)) >>> 0;
+  // Each ninth starts at a different place in the list, so neighbouring regions are not all "Steppe".
+  return list[(turn + sector * 2 + rank) % list.length].replace('{D}', COMPASS[sector]);
+}
 
 /** A per-game salt from things every seat sees identically. */
 function gameSalt(view: PlayerView): number {
   return hashString(`${view.width}x${view.height}|${view.players.map((p) => `${p.name}/${p.faction}`).join('|')}`);
-}
-
-function shuffled<T>(list: T[], salt: number): T[] {
-  const a = [...list];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd(i, salt & 0xffff, salt >>> 16) * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
 }
 
 const isWater = (t: Terrain | null) => t === 'Ocean' || t === 'Coast';
@@ -78,10 +77,14 @@ export function computeLabels(view: PlayerView): MapLabel[] {
   const chh = 9;
   const nx = Math.ceil(W / cw);
   const ny = Math.ceil(H / chh);
-  const seas = shuffled(SEAS, salt);
-  const ranges = shuffled(RANGES, salt ^ 0x5bd1);
-  const regions: Record<string, string[]> = {};
-  for (const [k, v] of Object.entries(REGIONS)) regions[k] = shuffled(v, salt ^ hashString(k));
+  const used = new Set<string>();
+  /** Letter a place once: two places never share a name. */
+  const letter = (feature: Feature, gx: number, gy: number, kind: MapLabel['kind'], x: number, y: number, angle: number) => {
+    const name = placeName(feature, gx, gy, nx, ny, salt);
+    if (!name || used.has(name)) return;
+    used.add(name);
+    out.push({ text: kind === 'sea' ? name : name.toUpperCase(), kind, x, y, angle });
+  };
   const cityTiles = new Set(view.cities.map((c) => `${c.pos.q + (c.pos.r - (c.pos.r & 1)) / 2},${c.pos.r}`));
   const out: MapLabel[] = [];
   const near = (x: number, y: number, kind: MapLabel['kind'], d: number) =>
@@ -136,12 +139,10 @@ export function computeLabels(view: PlayerView): MapLabel[] {
     for (let dr = -2; dr <= 2 && !blocked; dr++)
       for (let dc = -2; dc <= 2; dc++) if (cityTiles.has(`${col + dc},${row + dr}`)) blocked = true;
     if (blocked || near(cx, cy, 'range', 360)) continue;
-    const cell = Math.floor(row / chh) * nx + Math.floor(col / cw);
-    out.push({ text: ranges[cell % ranges.length].toUpperCase(), kind: 'range', x: cx, y: cy, angle });
+    letter('Range', Math.min(nx - 1, Math.max(0, Math.floor(col / cw))), Math.min(ny - 1, Math.max(0, Math.floor(row / chh))), 'range', cx, cy, angle);
   }
   for (let gy = 0; gy < ny; gy++)
     for (let gx = 0; gx < nx; gx++) {
-      const cell = gy * nx + gx;
       let total = 0;
       const water: number[] = [];
       const land: number[] = [];
@@ -191,12 +192,12 @@ export function computeLabels(view: PlayerView): MapLabel[] {
         }
         const x = centerX(best, W);
         const y = centerY(best, W);
-        if (!near(x, y, 'sea', 420)) out.push({ text: seas[cell % seas.length], kind: 'sea', x, y, angle: 0 });
+        if (!near(x, y, 'sea', 420)) letter('Sea', gx, gy, 'sea', x, y, 0);
       }
       // Regions: open land with no city in the way.
       if (land.length >= 30 && land.length >= total * 0.5) {
         const dominant = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-        const names = regions[dominant === 'Mountains' ? 'Hills' : dominant] ?? regions.Open;
+        const feature: Feature = dominant === 'Mountains' ? 'Hills' : dominant in OUTER ? (dominant as Feature) : 'Open';
         const mid = centroid(land);
         // Anchor on the explored land tile nearest the centroid (a ring of land has a hole).
         let anchor = land[0];
@@ -216,7 +217,7 @@ export function computeLabels(view: PlayerView): MapLabel[] {
           for (let dc = -2; dc <= 2; dc++) if (cityTiles.has(`${col + dc},${row + dr}`)) blocked = true;
         const y = c.y + 20;
         if (!blocked && !near(c.x, y, 'land', 480) && !near(c.x, y, 'range', 320))
-          out.push({ text: names[cell % names.length].toUpperCase(), kind: 'land', x: c.x, y, angle: 0 });
+          letter(feature, gx, gy, 'land', c.x, y, 0);
       }
     }
   return out;

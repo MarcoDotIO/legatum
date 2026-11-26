@@ -1,7 +1,7 @@
 import { useLayoutEffect, useRef, type RefObject } from 'react';
 import { CounterDelta } from '../celebrate/MomentLane';
 import { useGame } from '../store';
-import { CALENDAR_NOTE, TECH_NAME, calendarLabel, decadenceRules } from '../data';
+import { CALENDAR_NOTE, TECH_NAME, effectiveTurnLimit, calendarLabel, decadenceRules } from '../data';
 import { effectiveResearchQueue, pendingResearchQueue } from '../orders';
 import { firstScienceForecast } from '../research';
 import { eraName, eraNumeral, queueSchedule } from './eraResearch';
@@ -15,24 +15,25 @@ import { bankruptcyWarning, FORECAST_ASSUMPTIONS } from './forecastWarnings';
 import { usePhoneLayout } from './usePhoneLayout';
 import { ScienceHoverSummary } from './ScienceHover';
 import { Amount, Amounts, Quantity } from './Amounts';
-import { VpChip } from './ObjectiveSheet';
 import { CitiesButton } from './CitiesOverview';
 import { HoardReadout, TombReadout } from './FactionGoalProgress';
 import { LevyCounter } from './Levy';
 import { DecadenceNote } from './DecadenceNote';
 import { pendingSpend } from './productionPurchases';
 import { TrainingLine, TrainingTip } from './Training';
+import { hostedRoomId } from '../net/hosting';
+import { listedRoomName } from '../net/roomName';
 
 /**
  * Desktop and tablet top bar compaction, in order: each step hides more secondary text (all of it
  * stays in the tooltips) until the totals fit and the research cell shows its text in full. The
  * Egypt's Royal Tomb readout goes to its short form ("6/15") early, before the brand or the Gold income go. The
- * first step drops the Technologies button (the research cell opens the same dialog); the resource names go late,
+ * resource names go late,
  * and the painted resource art keeps the strategic resources apart after them. The "Pop." and "Armed" words go first, and shortage chips keep their names at every size. The
  * research cell truncates only after the last step. Measured, not media queries, because what the
  * bar holds varies (0 to 6 supply chips, the treasury warning, a one- or two-line research plan).
  */
-const TOP_BAR_COMPACTION = ['counts', 'nav', 'cities', 'tomb', 'warning', 'tight', 'score', 'era', 'brand', 'incomes', 'hoard', 'art', 'names', 'label', 'eraname', 'erachip'] as const;
+const TOP_BAR_COMPACTION = ['counts', 'cities', 'tomb', 'warning', 'tight', 'era', 'brand', 'incomes', 'hoard', 'art', 'names', 'label', 'eraname', 'erachip'] as const;
 
 function fitsTopBar(bar: HTMLElement) {
   const stats = bar.querySelector<HTMLElement>('.tb-stats');
@@ -63,6 +64,12 @@ function useTopBarCompaction(ref: RefObject<HTMLElement | null>, phone: boolean)
 
 /** The turn limit joins the turn label only this close to it; before that it lives in the tooltip (user, 2026-11-15). */
 const FINAL_TURNS = 25;
+
+/** The Online chip's tip for the host: keep the tab open, and the game's name in the public list so friends can find it. */
+function hostTip(roomId: string | null): string {
+  const keep = 'You host this game in this tab, so keep it open.';
+  return roomId ? `${keep} In the game list it is “${listedRoomName(roomId)}”.` : keep;
+}
 
 export function TopBar() {
   const view = useGame((s) => (s.views ? s.views[s.seat] : null));
@@ -100,9 +107,8 @@ export function TopBar() {
     <BreakdownTable b={e.bankruptcy.gold} title="Next turn Gold before bankruptcy" />
     <div className="bd-note">{FORECAST_ASSUMPTIONS}</div>
   </> : null;
-  const turnTip = `${view.turn_limit === null
-    ? 'No turn limit; play until victory.'
-    : `${Math.max(0, view.turn_limit - view.turn)} turns until the turn limit. At turn ${view.turn_limit} the highest VP wins.`} ${CALENDAR_NOTE}`;
+  const lastTurn = effectiveTurnLimit(view.turn_limit);
+  const turnTip = `${Math.max(0, lastTurn - view.turn)} turns until turn ${lastTurn}, when the team with the most VP wins. ${CALENDAR_NOTE}`;
   return (
     <header ref={bar} className="topbar" data-overlay-slot="top-bar">
       <div className="brand">
@@ -145,13 +151,12 @@ export function TopBar() {
         {!phone && <Tip content={<>
           <div className="bd-title">{eraName(r.era)} era</div>
           <div>{r.era_known} of {r.era_total} {eraName(r.era)} technologies known. Only this era's technologies can be researched; finishing them all enters the next era.</div>
-          <div className="bd-note">Click to open research.</div>
         </>} summary={`${eraName(r.era)} era: ${r.era_known} of ${r.era_total} technologies known`} className="era-chip-tip">
-          <button className="era-chip" data-testid="era-chip" aria-label={`${eraName(r.era)} era, ${r.era_known} of ${r.era_total} technologies known. Open research`} onClick={() => set({ techOpen: true })}>
+          <span className="era-chip" data-testid="era-chip" aria-label={`${eraName(r.era)} era, ${r.era_known} of ${r.era_total} technologies known`}>
             <span className="era-chip-numeral" aria-hidden="true">{eraNumeral(r.era)}</span>
             <span className="era-chip-name">{eraName(r.era)}</span>
             <small className="era-chip-count">{r.era_known}/{r.era_total}</small>
-          </button>
+          </span>
         </Tip>}
         <div className="research-slot">
           <button className={`research-chip ${researching ? '' : 'needs'}`} onClick={() => set({ techOpen: true })}>
@@ -171,7 +176,7 @@ export function TopBar() {
       </div>
       <div className="tb-right">
         {net && (
-          <Tip content={net.status.is_local ? 'You host this game in this tab. Keep it open.' : net.conn === 'open' ? 'Connected to the host' : 'Connection lost: reconnecting automatically'} className={`net ${net.conn}`}>
+          <Tip content={net.status.is_local ? hostTip(hostedRoomId()) : net.conn === 'open' ? 'Connected to the host' : 'Connection lost: reconnecting automatically'} className={`net ${net.conn}`}>
             <span className={`conn-dot ${net.conn === 'open' ? 'on' : 'warn'}`} />
             {net.conn === 'open' ? 'Online' : net.conn === 'taken' ? 'Seat taken' : 'Reconnecting'}
 
@@ -180,15 +185,10 @@ export function TopBar() {
         <Tip content={<>{turnTip}<TrainingTip /></>} className="turn">
           <span className="turn-label">Turn</span>
           <b data-testid="turn-number">{view.turn}</b>
-          {view.turn_limit !== null && view.turn_limit - view.turn <= FINAL_TURNS && <span className="turn-of" data-testid="turn-of">of {view.turn_limit}</span>}
+          {lastTurn - view.turn <= FINAL_TURNS && <span className="turn-of" data-testid="turn-of">of {lastTurn}</span>}
           <span className="turn-year" data-testid="turn-year">· {calendarLabel(view.turn)}</span>
           <TrainingLine />
         </Tip>
-        <VpChip />
-        {/* The research cell opens the same dialog, so the most crowded bar drops this button. */}
-        <button className="tb-nav tb-nav-tech" onClick={() => set({ techOpen: true })}>
-          Technologies
-        </button>
         <CitiesButton />
         <GameMenu />
       </div>

@@ -1,6 +1,6 @@
 // The online staging room, as specified in plans/game-protocol.md.
 import type { AiDifficulty, Faction } from './types';
-import { MAP_SIZES, levelFields, levelOf, mapDimensions, readDifficultyPreference, type Lobby, type MapSizeId, type Slot } from './lobby';
+import { MAP_SIZES, levelFields, levelOf, mapDimensions, setDifficulty, type AiLevel, type Lobby, type MapSizeId, type Slot } from './lobby';
 import { apiFetch, joinCodeToSend, rememberSeat, rememberedSeat, defaultWsUrl, defaultSocketFactory, serverBase, type ServerStatus, type SocketFactory, type SocketLike } from './remote';
 
 // ---- Flag ----
@@ -39,6 +39,8 @@ export interface StagingConfig {
   barbarians?: boolean;
   /** The AI-only teams start in Alliances of two; servers from before it omit it (read as off). */
   ai_alliances?: boolean;
+  /** Deals (rules 61); hosts from before deals omit it (read as off). New rooms turn it on. */
+  deals?: boolean;
   seats: StagingSeat[];
 }
 
@@ -91,7 +93,9 @@ export function configFromLobby(l: Lobby): StagingConfig {
     // Omitted when on (the server's default), so default rooms keep their old config shape.
     ...(l.barbarians === false ? { barbarians: false } : {}),
     ...(l.aiAlliances ? { ai_alliances: true } : {}),
-    seats: l.slots.map((s) => ({ kind: KIND[s.kind], name: s.name, faction: s.faction, team: s.team, difficulty: s.difficulty, ...(levelOf(s) === 'Training' ? { search: true } : {}) })),
+    // Deals are on in every new game, online too (the host's WASM passes it to the setup).
+    deals: true,
+    seats: l.slots.map((s) => ({ kind: KIND[s.kind], name: s.name, faction: s.faction, team: s.team, difficulty: s.kind === 'ai' ? l.difficulty : s.difficulty, ...(s.kind === 'ai' && levelOf(l) === 'Training' ? { search: true } : {}) })),
   };
 }
 
@@ -102,8 +106,10 @@ export function lobbyFromStaging(st: StagingState, includeOccupants = true): Lob
   const c = st.config;
   const mapSize = (Object.keys(MAP_SIZES) as MapSizeId[]).find((k) => MAP_SIZES[k].width === c.width && MAP_SIZES[k].height === c.height) ?? { width: c.width, height: c.height };
   const aiLevels = c.seats.filter((s) => s.kind === 'ai').map((s) => levelOf(s));
-  const level = aiLevels.length && aiLevels.every((l) => l === aiLevels[0]) ? aiLevels[0] : readDifficultyPreference()?.level ?? 'Hard';
-  return {
+  // Older online rooms could mix seat levels. Use their hardest AI level throughout.
+  const rank: Record<AiLevel, number> = { Easy: 0, Normal: 1, Hard: 2, Training: 3 };
+  const level = aiLevels.reduce<AiLevel>((hardest, current) => rank[current] > rank[hardest] ? current : hardest, aiLevels[0] ?? 'Hard');
+  return setDifficulty({
     mode: 'host',
     preset: 'custom',
     seed: st.seed ?? 'Hidden',
@@ -116,7 +122,7 @@ export function lobbyFromStaging(st: StagingState, includeOccupants = true): Lob
       const o = includeOccupants ? st.occupants[i] : null;
       return { kind: SLOT_KIND[s.kind], name: o?.name ?? s.name, faction: o?.faction ?? s.faction, team: s.team, difficulty: s.difficulty, ...(levelOf(s) === 'Training' ? { search: true } : {}) };
     }),
-  };
+  }, level);
 }
 
 /** The host's lobby with the network players' own names and factions shown in their seats. */

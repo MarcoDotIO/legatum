@@ -703,7 +703,7 @@ pub fn run(cli: &Cli) -> Result<(), String> {
         let summary = std::mem::take(&mut file.objective.summary);
         file.objective = built.objective;
         file.objective.summary = summary;
-        file.prepare(true).map_err(|e| format!("{id}: {e}"))?;
+        file.prepare().map_err(|e| format!("{id}: {e}"))?;
         std::fs::create_dir_all(&cli.dir).map_err(|e| e.to_string())?;
         let mut json = serde_json::to_string_pretty(&file).expect("scenario JSON");
         json.push('\n');
@@ -749,7 +749,6 @@ fn placeholder(id: &str, built: &Built) -> ScenarioFile {
         source: String::new(),
         baseline: None,
         human: None,
-        lab: None,
         rusher: None,
         ai_memory: None,
         state: EncodedState {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { atWar, queueDiplomacy, warDeclaration } from './diplomacy';
+import { atWar, queueDiplomacy, teamName, warDeclaration } from './diplomacy';
 import { previewPath } from './path';
 import { fromOffset, tileIndex } from './hex';
 import { reachTiles } from './map/reach';
@@ -17,6 +17,17 @@ function view(): PlayerView {
 }
 
 describe('diplomacy planning permissions', () => {
+  it('names teams by faction in diplomatic text', () => {
+    const v = view();
+    Object.assign(v.players[0], { name: 'Ada', faction: 'India' });
+    Object.assign(v.players[1], { name: 'AI 3', faction: 'Sparta' });
+    Object.assign(v.players[2], { name: 'AI 5', faction: 'Mongols' });
+    expect(teamName(v, 0)).toBe('India');
+    expect(teamName(v, 1)).toBe('Sparta');
+    expect(teamName(v, 2)).toBe('Mongols');
+    v.players[2].team = 1;
+    expect(teamName(v, 1)).toBe('Sparta & Mongols');
+  });
   it('shows the truce reason when an allied former enemy cannot be betrayed yet', () => {
     const v = view();
     v.diplomacy.relations[0].state = 'Alliance';

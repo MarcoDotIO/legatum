@@ -145,7 +145,7 @@ for (const size of sizes) for (const look of ['atlas'] as const) test.describe(`
     if (size.width === 1440) {
       expect(await page.getByTestId('supply-Iron').evaluate((el) => parseFloat(getComputedStyle(el).fontSize))).toBeGreaterThan(0);
     }
-    // Iron and Coal read apart at a glance on a desktop bar: painted art at 24 px (8.9.4 review), and the Technologies
+    // Iron and Coal read apart at a glance on a desktop bar: painted art at 24 px (8.9.4 review), and the Research chip
     // button is the first thing the bar drops (the research cell opens the same dialog).
     if (size.width >= 1280) {
       for (const mark of await page.locator('.supply-stat .supply-resource-icon').all()) {

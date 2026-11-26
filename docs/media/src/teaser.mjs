@@ -50,7 +50,8 @@ for (let i = 1; i < board.shots.length; i++) {
 }
 parts.push(`[${last}][end]xfade=transition=fade:duration=${FE}:offset=${(acc - FE).toFixed(3)}[outv]`);
 const total = acc + board.endCard;
-// Music: a cut of the game's CC0 soundtrack (app/public/audio/CREDITS.md), faded in and out.
+// Music: a cut of one of the game's CC0 tracks (app/public/audio/CREDITS.md), faded in and out.
+// Use a CC0 track only: every other track (CC BY-SA or CC BY) would need its credit and licence on the clip.
 const m = board.music;
 inputs.push("-ss", String(m.ss ?? 0), "-t", String(total), "-i", join(root, m.file));
 parts.push(`[${n++}:a]afade=t=in:st=0:d=${m.fadeIn ?? 0.3},afade=t=out:st=${(total - (m.fadeOut ?? 2.5)).toFixed(2)}:d=${m.fadeOut ?? 2.5},volume=${m.gain ?? 1},aresample=48000[outa]`);

@@ -14,15 +14,32 @@ interface Host {
   viewport(): MapViewport;
   /** Snap the camera center to a world point, cancelling any focus animation. */
   center(x: number, y: number): void;
+  /** The store's latest jump-to (focus.seq), so a jump made with the swap beats the old centre. */
+  focusSeq?(): number;
 }
 
 let host: Host | null = null;
 const listeners = new Set<() => void>();
+/** Where the map that just unmounted was looking, so the 2D and 3D maps can swap in place. */
+let handoff: { vp: MapViewport; at: number; seq: number } | null = null;
 
-/** MapCanvas only. Returns the unregister function. */
+/** MapCanvas and Map3DView only. Returns the unregister function. */
 export function registerMapCamera(h: Host): () => void {
   host = h;
-  return () => { if (host === h) host = null; };
+  return () => {
+    if (host !== h) return;
+    try { handoff = { vp: h.viewport(), at: Date.now(), seq: h.focusSeq?.() ?? 0 }; } catch { handoff = null; }
+    host = null;
+  };
+}
+
+/** A map that mounts right after another unmounted (a 2D / 3D swap, not a new game) takes over its centre.
+ *  Returns null when the last map closed more than a moment ago (e.g. before a new game), or when a
+ *  jump-to was made since (placing a wonder jumps to the city and swaps to 2D in one go: the jump wins). */
+export function takeMapHandoff(focusSeq = 0, now = Date.now()): MapViewport | null {
+  const h = handoff;
+  handoff = null;
+  return h && now - h.at < 1500 && h.seq === focusSeq ? h.vp : null;
 }
 
 /** MapCanvas only: the camera or canvas size changed this frame. */

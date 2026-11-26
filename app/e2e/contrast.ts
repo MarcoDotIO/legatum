@@ -181,7 +181,9 @@ async function measureAll(page: Page, state: string): Promise<ContrastReading[]>
   await setClass(null);
   const results = await page.evaluate(async ({ ink, paper, boxes }) => {
     const decode = async (b64: string) => {
-      const blob = await (await fetch(`data:image/png;base64,${b64}`)).blob();
+      // Decoded in place: the site's CSP (connect-src) refuses fetch() of a data: URL.
+      const bytes = Uint8Array.from(atob(b64), (c) => c.charCodeAt(0));
+      const blob = new Blob([bytes], { type: 'image/png' });
       const bmp = await createImageBitmap(blob);
       const canvas = new OffscreenCanvas(bmp.width, bmp.height);
       const ctx = canvas.getContext('2d')!;

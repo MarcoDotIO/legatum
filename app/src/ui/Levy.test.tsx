@@ -76,5 +76,5 @@ it('shows nothing about levies for any other faction, and states the rule once i
   act(() => root.render(<><TopBar /><LevyNote /></>));
   expect(container.querySelector('.levy-counter')).toBeNull();
   expect(container.querySelector('.levy-note')).toBeNull();
-  expect(THIN_LEVIES).toBe("Thin levies: you can field at most one military unit per city, plus one more. Aircraft count; Scouts don't. Losing a city never disbands units, but you can't raise new ones until you are back under the limit.");
+  expect(THIN_LEVIES).toBe("Thin levies: you can field at most one military unit per city, plus one more.");
 });

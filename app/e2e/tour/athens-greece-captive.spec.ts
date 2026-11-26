@@ -16,8 +16,8 @@ for (const size of SIZES) test.describe(`Greece Captive ${size.name}`, () => {
     const stage = page.locator('dialog[data-testid="faction-stage"][open]');
     await page.getByRole('option', { name: FACTION_INFO.Athens.name }).click();
     const sheet = stage.getByTestId('faction-sheet');
-    await expect(sheet).toContainText('A rival that captures one of your cities gets one free technology');
-    await expect(sheet).toContainText('Capture an Athenian city for one free technology');
+    await expect(sheet).toContainText('A rival that captures one of your cities gets a free technology');
+    await expect(sheet).toContainText('Capture an Athenian city for a free technology');
     await parkMouse(page);
     await shot(page, size, '01-athens-sheet');
   });

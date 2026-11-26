@@ -181,7 +181,20 @@ CI about 15 minutes on 4 cores (after PR #14).
   cities while map draw time stayed flat. Plot long tasks first, not frame p95. The cause was terrain cache work
   (a whole-map field rebuild each turn, chunk rendering on zoom), found only by replaying the turn with a CPU
   profile on a real GPU.
+- 2026-11-23: a +25% median AI turn pinned on an AI change was the benchmark game running 32 turns longer, not
+  slower code. When a timing moves on a range where the hash or digest moved, compare by turn range (the nightly
+  now uses the turns both sides played and prints `ai_turns_played`) and time the suspect directly before
+  reporting it. Sim cpu-s per game has the same weakness.
 - 2026-11-22 (user): this agent always runs on Fable.
 - 2026-11-21: performance used to be sections of the ops supervisor and lapsed after late October
   (last sim baseline 10-31, AI turn budget 10-27, app size 10-23) because the run grew into fleet
   babysitting. Keep this agent narrow: measure, flag, one improvement a week.
+- 2026-11-24: stalls after turn 110 in a Rome game were the found-city hover check sending the whole view to
+  the engine per pointer move (`docs/learnings/2026-11/24-founder-hover-stalls.md`). `frame_times` now splits long
+  tasks by cause (`long_draw_ms`, `long_terrain_ms`, `long_engine_ms`): read the split before replaying a game.
+  From the cloud, list games at `https://games.playlegatum.com/v1/read/games` with no `Authorization` header (the
+  environment adds it) and no empty `cursor=`.
+- 2026-11-25 (user): performance is solved for Chrome and browsers built on it only. Other browsers get the title
+  screen note "Runs best in Chrome" (`app/src/platform/browser.ts`). Do not open work to make Safari or Firefox
+  draw faster, and do not flag their slower games: games with no long-task numbers at all are those browsers
+  (map draw mean 7 to 42 ms against 1 to 2 ms in Chrome on 2026-11-25; not the `?blur=js` fallback).

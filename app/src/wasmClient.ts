@@ -8,12 +8,11 @@
 // save() is opaque (u64 bitset words): store the string as-is, never re-serialize it.
 // forecast() returns BattleForecast JSON or the string "null". A Rust panic throws
 // RuntimeError "unreachable" (real message on console.error); recreate from the last save.
-import type { TurnFrameTime } from './frameTelemetry';
+import { engineWork, type TurnFrameTime } from './frameTelemetry';
 import type { GameClient } from './client';
 import type { WhyCategory, WhyQuestion } from './why';
 import type { TrainingEngine, TrainingFinish, TrainingProgress } from './training';
 import type { SettlementScore, SettlementSite, SiteBlocker } from './types';
-import type { ScenarioStatus, ScenarioTarget } from './scenarios/scenarios';
 import type {
   AttackMode,
   AlongsideAttack,
@@ -42,8 +41,6 @@ interface WasmGame {
   record_turn_time?(turn: number, endedAt: string, activeSeconds: number, era: number, sessionId: string): void;
   record_frame_time?(timeJson: string): void;
   fork_archive(): void;
-  attach_scenario(scenarioJson: string): void;
-  scenario_status(): string;
   training_begin?(capMs: number): string;
   training_step?(maxRollouts: number, elapsedMs: number): string;
   training_finish?(elapsedMs: number): string;
@@ -56,7 +53,6 @@ interface WasmGameClass {
   new (setupJson: string): WasmGame;
   standard_setup(seed: string, f1: string, f2: string, n1: string, n2: string): string;
   load(json: string): WasmGame;
-  load_scenario(scenarioJson: string): WasmGame;
   settlement_sites(view: string, unit: number, reserved: string): string;
   settlement_site(view: string, unit: number, q: number, r: number, reserved: string): string;
   site_blocker(view: string, q: number, r: number): string;
@@ -66,7 +62,6 @@ interface WasmModule {
   explore_step(view: string, unit: number): string;
   advisor_orders(view: string): string;
   city_automation_orders(view: string, orders: string): string;
-  scenario_targets?(scenarioJson: string): string;
   default?: (input?: unknown) => Promise<unknown>;
   Game: WasmGameClass;
 }
@@ -96,13 +91,6 @@ export function loadWasmModule(): Promise<WasmModule> {
   })().catch((error) => { modulePromise = null; throw error; });
 }
 
-/** A scenario's objective cities from its start state, for the briefing; [] without the engine. */
-export async function scenarioTargets(scenarioJson: string): Promise<ScenarioTarget[]> {
-  if (!wasmAvailable()) return [];
-  const mod = await loadWasmModule();
-  return mod.scenario_targets ? JSON.parse(mod.scenario_targets(scenarioJson)) as ScenarioTarget[] : [];
-}
-
 export async function createWasmClient(): Promise<GameClient> {
   const loader = Object.values(pkg)[0];
   if (!loader) {
@@ -111,14 +99,27 @@ export async function createWasmClient(): Promise<GameClient> {
     );
   }
   const mod = await loadWasmModule();
-  return new WasmClient(mod.Game);
+  return timedClient(new WasmClient(mod.Game));
+}
+
+/** Every call into the client counts as engine work in the frame telemetry (what filled a long task). */
+function timedClient(client: WasmClient): GameClient {
+  const wrapped = new Map<PropertyKey, unknown>();
+  return new Proxy(client, {
+    get(target, key) {
+      const value = Reflect.get(target, key, target);
+      if (typeof value !== 'function') return value;
+      let fn = wrapped.get(key);
+      if (!fn) wrapped.set(key, fn = (...args: unknown[]) => engineWork(() => Reflect.apply(value, target, args)));
+      return fn;
+    },
+    set: (target, key, value) => Reflect.set(target, key, value, target),
+  });
 }
 
 export class WasmClient implements GameClient, TrainingEngine {
   readonly kind = 'wasm' as const;
   private game: WasmGame | null = null;
-  /** The scenario in play, re-attached when a save restores the game after an engine error. */
-  private scenario: string | null = null;
   constructor(private readonly Game: WasmGameClass) {}
 
   private get g(): WasmGame {
@@ -130,7 +131,6 @@ export class WasmClient implements GameClient, TrainingEngine {
     const replacement = new this.Game(JSON.stringify(setup));
     const previous = this.game;
     this.game = replacement;
-    this.scenario = null;
     previous?.free?.();
   }
 
@@ -208,27 +208,9 @@ export class WasmClient implements GameClient, TrainingEngine {
 
   load(json: string): void {
     const replacement = this.Game.load(json);
-    try {
-      if (this.scenario) replacement.attach_scenario(this.scenario);
-    } catch (error) {
-      replacement.free?.();
-      throw error;
-    }
     const previous = this.game;
     this.game = replacement;
     previous?.free?.();
   }
 
-
-  loadScenario(scenarioJson: string): void {
-    const replacement = this.Game.load_scenario(scenarioJson);
-    const previous = this.game;
-    this.game = replacement;
-    this.scenario = scenarioJson;
-    previous?.free?.();
-  }
-
-  scenarioStatus(): ScenarioStatus {
-    return JSON.parse(this.g.scenario_status());
-  }
 }

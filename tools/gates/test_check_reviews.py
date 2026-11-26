@@ -33,6 +33,13 @@ class Reviews(unittest.TestCase):
         self.assertEqual(kinds["artimpact"], ["app/src/unitArt.ts"])
         self.assertEqual(kinds["art"], ["app/public/terrain/grass.png"])
 
+    def test_position_only_branch_uses_fast_scenario_gate(self):
+        files = ["scenarios/lab/probe.json", "docs/sim-results/scenarios/probe-baseline.md"]
+        kinds = check.classify(".", "HEAD", "HEAD", files)
+        self.assertEqual(kinds["scenario"], ["scenarios/lab/probe.json"])
+        self.assertEqual(kinds["code"], [])
+        self.assertEqual(kinds["copy"], [])
+
     def test_controls_and_rules_the_advisor_teaches_need_the_advisor_reviewer(self):
         files = ["app/src/map/MapCanvas.tsx", "app/src/ui/Advisor.tsx", "crates/core/src/rules/cities.rs",
                  "app/src/ui/advisor.test.ts", "app/src/ui/DiplomacyPanel.tsx", "crates/ai/src/scripted.rs"]
