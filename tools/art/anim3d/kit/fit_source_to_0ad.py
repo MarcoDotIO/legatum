@@ -1098,7 +1098,7 @@ pack(rig.g, meshes, images, out, credit, args.license,
              'fit': 'tools/art/anim3d/kit/fit_source_to_0ad.py'},
      material_name='Fitted ' + args.source.stem)
 for name in ('LICENSE-ART',):
-    if not (out.parent / name).exists(): shutil.copy(APPROVED.parent / name, out.parent / name)
+    if not (out.parent / name).exists() and (args.rig.parent / name).exists(): shutil.copy(args.rig.parent / name, out.parent / name)
 prov = out.parent / 'PROVENANCE.md'
 if not prov.exists():
     prov.write_text(f"""# {out.name}: provenance
