@@ -450,7 +450,9 @@ export class MapScene {
     }
     return this.env;
   }
-  private squads: { fig: THREE.Object3D; lod0: THREE.Object3D[]; lod1: THREE.Object3D[] }[] = [];
+  private squads: { fig: THREE.Object3D; lod0: THREE.Object3D[]; lod1: THREE.Object3D[]; scale: number; x: number; z: number }[] = [];
+  /** Reduced motion or the Animations switch off (ui/motion.ts motionStill): models hold their pose. */
+  still = false;
 
   /** Picks each model figure's mesh: LOD0 for the few figures nearest the view centre when the camera is close, else LOD1. */
   private updateLod() {
@@ -460,7 +462,12 @@ export class MapScene {
         .map((s) => ({ s, d: s.fig.getWorldPosition(p).distanceToSquared(this.target) }))
         .sort((a, b) => a.d - b.d).slice(0, LOD0_FIGURES).map((x) => x.s))
       : new Set();
+    // A squad of small figures reads smaller than one painted miniature, so it grows as the camera pulls back.
+    const grow = 1 + 0.5 * THREE.MathUtils.smoothstep(this.dist, 3, 13);
     for (const s of this.squads) {
+      s.fig.scale.setScalar(s.scale * grow);
+      s.fig.position.set(s.x * grow, 0, s.z * grow);
+      if (!s.lod0.length || !s.lod1.length) continue; // a model without a LOD1 draws its LOD0 everywhere
       const hi = near.has(s);
       for (const m of s.lod0) m.visible = hi;
       for (const m of s.lod1) m.visible = !hi;
@@ -543,7 +550,7 @@ export class MapScene {
   private addSquad(g: THREE.Group, gltf: GLTF, team: THREE.Color, seed: number) {
     const box = new THREE.Box3().setFromObject(gltf.scene);
     // A figure stands about as tall as a painted miniature (0.3 including its base), so models and sprites read at one size.
-    const scale = 0.22 / Math.max(0.001, box.max.y - box.min.y);
+    const scale = 0.26 / Math.max(0.001, box.max.y - box.min.y);
     const idle = gltf.animations.find((a) => a.name === 'idle') ?? gltf.animations[0];
     const SQUAD: [number, number][] = [[0, 0.045], [-0.05, -0.03], [0.05, -0.03]];
     SQUAD.forEach(([sx, sz], f) => {
@@ -571,11 +578,11 @@ export class MapScene {
         if (std.isMeshStandardMaterial && !std.envMap) { std.envMap = this.unitEnv(); std.envMapIntensity = 0.7; }
       });
       g.add(fig);
-      // A model without a LOD1 mesh draws its LOD0 everywhere.
-      if (lod0.length && lod1.length) this.squads.push({ fig, lod0, lod1 });
+      this.squads.push({ fig, lod0, lod1, scale, x: sx, z: sz });
       if (idle) {
         const mx = new THREE.AnimationMixer(fig);
         const a = mx.clipAction(idle); a.play(); a.time = hash2(seed, f + 9) * idle.duration;
+        mx.update(0); // pose it now, so a still map shows the idle pose, not the bind pose
         this.mixers.push(mx);
       }
     });
@@ -705,7 +712,7 @@ export class MapScene {
   frame(): boolean {
     const dt = Math.min(0.05, this.clock.getDelta());
     this.uniforms.uTime.value += dt;
-    for (const m of this.mixers) m.update(dt);
+    if (!this.still) for (const m of this.mixers) m.update(dt);
     this.renderer.render(this.scene, this.camera);
     const was = this.animating;
     this.animating = false;
