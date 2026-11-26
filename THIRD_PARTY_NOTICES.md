@@ -1,6 +1,6 @@
 # Third-party notices
 
-Legatum's own code is MIT (`LICENSE`) and its art is CC BY 4.0 (`LICENSE-ART`). It builds on the open-source
+Legatum's own code is MIT (`LICENSE`) and its art is CC BY 4.0 (`LICENSE-ART`), except the 3D map's unit models (CC BY-SA 3.0, see Art below). It builds on the open-source
 components below, each under its own licence. Last audited 2026-11-22 with `cargo metadata` on the Cargo workspace
 and the licence fields of `app/package-lock.json`. No dependency is GPL, LGPL-only or AGPL,
 none is unlicensed, and none comes from git or from a path outside this repository.

@@ -61,7 +61,7 @@ What this does not cover
 
 How the art was made
 --------------------
-All of the art is AI-generated. Most of it was generated with OpenAI image models (through
+All of the 2D art is AI-generated (the 3D unit models above are the exception). Most of it was generated with OpenAI image models (through
 ChatGPT and the Codex image tool) from prompts, many of which are stored beside the files in
 the source tree (`*.prompt.txt`). The results were then selected, cropped, resized and
 composed for the game. The full-size masters of several sets are in this repository beside

@@ -179,7 +179,7 @@ The crate map, the turn pipeline and the determinism rules are in [ARCHITECTURE.
 
 ## How it was made
 
-Legatum is built largely with AI coding agents, and all of its art is AI-generated. Most of the art comes from OpenAI's image models through ChatGPT; the icons and heraldry are SVG drawn by scripts in this repository. The working files are public so that other people can learn from them:
+Legatum is built largely with AI coding agents, and all of its 2D art is AI-generated (the 3D map's Spearman model is the one exception, credited above). Most of the art comes from OpenAI's image models through ChatGPT; the icons and heraldry are SVG drawn by scripts in this repository. The working files are public so that other people can learn from them:
 
 - [CLAUDE.md](CLAUDE.md) is the standing brief the agents work under: the design pillars, where each kind of knowledge lives, and the review gates.
 - [.claude/skills/](.claude/skills/) holds what an agent loads before a task: the code-checked rules reference, and the design, faction, UI, art and workflow notes with the decisions behind them.
