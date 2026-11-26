@@ -36,4 +36,6 @@ Round r3 adds generated linen sleeve shells (replacing the torn source sleeves),
 Corinthian face plate with a dark T opening, skin sunk a few millimetres under clothing, and
 curvature-driven edge wear on the bronze. The model's eyes are removed (hidden by the plate).
 
-Rebuild: the fitting kit (`tools/art/anim3d/kit/`, `FIT.md`, "Real models, round r1", and `fit_source_to_0ad.py`, named in the GLB's `extras.fit`) and the build folder `tools/art/anim3d/units/spearman-fit-casey/` are on this repository's branch `astra/unit-anim-3d-fit` at commit `f2395155`; the source files named above are not in this repository.
+Round r4 (the shipped file, 2026-11-26, after the art review of PR 265): LOD1 keeps every garment of LOD0 (cuirass, chiton, sleeves, pteruges, skirt, greaves; hidden skin deleted first), the face plate is bronze with a T opening and nose guard, and the aspis is two-sided (sunburst outside, plain bronze inside) with a brighter team rim. LOD0 29,495 triangles, LOD1 2,895; clips unchanged.
+
+Rebuild: the fitting kit (`tools/art/anim3d/kit/`, `FIT.md`, "Real models, round r1", and `fit_source_to_0ad.py`, named in the GLB's `extras.fit`) and the build folder `tools/art/anim3d/units/spearman-fit-casey/` are on this repository's branch `astra/unit-anim-3d-fit` at commit `1a3fe6df`; the source files named above are not in this repository.
