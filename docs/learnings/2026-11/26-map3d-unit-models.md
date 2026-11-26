@@ -8,3 +8,4 @@
 - **Still motion.** Model idle loops follow `motionStill` (reduced motion or Animations off): the mixers are posed once at creation and not advanced.
 - **Loader.** three r170's GLTFLoader reads KHR_mesh_quantization and EXT_texture_webp with no extra decoder.
 - **Check every LOD, at the zoom where it draws (art review, PR 265).** The first Spearman GLB's LOD1 had lost all its clothing in decimation (bare skin under the helmet and shield). It passed the glTF validator and the three.js runtime check, and nobody had looked at LOD1 on the map, where it is the mesh players see at normal zoom. Force each LOD in turn and compare them at one zoom before shipping a model.
+- **Guide text has a sentence-length test.** `src/ui/textArtifacts.test.tsx` caps a Guide sentence at 30 words, credits included; run it before a PR that adds a credit line (a 34-word credit failed CI on PR 265).
