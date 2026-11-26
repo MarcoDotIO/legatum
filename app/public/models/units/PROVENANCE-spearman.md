@@ -1,6 +1,6 @@
 # spearman.glb: provenance
 
-Shipped on the 3D map (designer's OK 2026-11-26; built in round r3 with LOD0 up to 30k triangles, about 3 MB). Licence of the combined asset: CC BY-SA 3.0
+Shipped on the 3D map (built in round r3 with LOD0 up to 30k triangles, about 3 MB). Licence of the combined asset: CC BY-SA 3.0
 (the 0 A.D. rig and clips are share-alike; the model is CC BY 4.0, which permits this).
 
 ## Credits
