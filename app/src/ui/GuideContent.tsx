@@ -397,7 +397,8 @@ function Credits() {
   const title = SOUND_MANIFEST.find((e) => e.file === 'music/atlas.m4a')!;
   const peopleMusic = SOUND_MANIFEST.filter((e) => e.file.startsWith('music/') && zeroAd(e));
   const by = (author: RegExp, license: string) => SOUND_MANIFEST.filter((e) => e.file.startsWith('music/') && e.license === license && author.test(e.author));
-  const freecol = by(/Zhelanov/, 'CC-BY-4.0'), horizons = by(/Escher|Unknown Horizons/, 'CC-BY-SA-3.0'), warzone = by(/LupusMechanicus/, 'CC-BY-SA-3.0'), wesnoth = by(/./, 'GPL-2.0-or-later');
+  const freecol = by(/Grenborgen/, 'CC-BY-4.0'), horizons = by(/Escher|Unknown Horizons/, 'CC-BY-SA-3.0'), warzone = by(/LupusMechanicus/, 'CC-BY-SA-3.0'), wesnoth = by(/./, 'GPL-2.0-or-later');
+  const aztec = SOUND_MANIFEST.filter((e) => e.file.startsWith('music/') && e.author === 'Alexandr Zhelanov');
   // The GPL asks for the author's name and the licence. A Source link opens the project's page, never a file or a package.
   const gplSounds = SOUND_MANIFEST.filter((e) => !e.file.startsWith('music/') && e.license === 'GPL-2.0-or-later');
   // CC BY asks for the author's name and a link to the licence.
@@ -418,6 +419,8 @@ function Credits() {
     <ul className="guide-credit-tracks">{peopleMusic.map((e) => <li key={e.file}>{e.title}</li>)}</ul>
     <p>From the Renaissance on, and for the Aztecs, much of the music is by Alexander Zhelanov and Stian Grenborgen, from <a href="https://www.freecol.org/" target="_blank" rel="noreferrer">FreeCol</a>, <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>, edited for Legatum.</p>
     <ul className="guide-credit-tracks">{freecol.map((e) => <li key={e.file}>{e.title}</li>)}</ul>
+    <p>The Aztecs’ own music is by <a href="https://soundcloud.com/alexandr-zhelanov" target="_blank" rel="noreferrer">Alexandr Zhelanov</a>, edited for Legatum.</p>
+    <ul className="guide-credit-tracks">{aztec.map((e) => <li key={e.file}>{e.title}, <a href={ccBy(e.license)} target="_blank" rel="noreferrer">CC BY {e.license.slice(-3)}</a>. <a href={e.source.split(' ')[0]} target="_blank" rel="noreferrer">Source</a></li>)}</ul>
     <p>More of the later music is by Tobias Escher and the <a href="https://unknown-horizons.org/" target="_blank" rel="noreferrer">Unknown Horizons</a> team, <a href="https://creativecommons.org/licenses/by-sa/3.0/" target="_blank" rel="noreferrer">CC BY-SA 3.0</a>, edited for Legatum.</p>
     <ul className="guide-credit-tracks">{horizons.map((e) => <li key={e.file}>{e.title}</li>)}</ul>
     <p>The music of the Machine Age and the World War era is from <a href="https://www.wesnoth.org/" target="_blank" rel="noreferrer">The Battle for Wesnoth</a>, <a href="https://www.gnu.org/licenses/old-licenses/gpl-2.0.html" target="_blank" rel="noreferrer">GPL version 2 or later</a>, edited for Legatum.</p>

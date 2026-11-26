@@ -164,4 +164,13 @@ Looked at and not used: Advanced Strategic Command's three tracks (22 kHz, 80 kb
 | --- | --- | --- |
 | The Battle for Wesnoth, `data/core/sounds/` | a falling soldier: `human-die-1.ogg` to `human-die-3.ogg` by Lari Nieminen (zookeeper), 44.1 kHz. Plays when a soldier of the gunpowder age or later falls (Musketman to Infantry, the gun-age horse, the Field Cannon's crew) | GPL v2+: `copyrights.csv`; each download's MD5 was checked against it |
 
-A destroyed machine (tank, artillery piece, aircraft, drone, Mechanised Infantry, Hunter-Killer) sounds the explosion recording already shipped. A Settler's loss stays silent. Looked at and not used: Warzone 2100's explosions and screams (11 to 16 kHz: too low a quality). Still missing: Mesoamerican music for the Aztecs. Two candidates are known, *Forgotten Music of Aztecs* (CC BY 3.0) and *Ritual Traps* (CC BY 4.0) by Alexandr Zhelanov on OpenGameArt, a host a cloud session cannot reach.
+A destroyed machine (tank, artillery piece, aircraft, drone, Mechanised Infantry, Hunter-Killer) sounds the explosion recording already shipped. A Settler's loss stays silent. Looked at and not used: Warzone 2100's explosions and screams (11 to 16 kHz: too low a quality). Still missing after this pass (the sixth pass below adds it): Mesoamerican music for the Aztecs.
+
+**Status (2026-11-26, sixth pass): music in a Mesoamerican style for the Aztecs.** Built by `tools/audio/build_aztec.py`.
+
+| Source | What we ship | Licence, and where it is stated |
+| --- | --- | --- |
+| OpenGameArt, *Forgotten Music of Aztecs* by Alexandr Zhelanov | *Great Pyramids*, *Life in Forest* and *Face to Face*, written for an online game about the Aztecs. 128 kb/s MP3, the only form published | CC BY 3.0: the page, with the attribution "Alexandr Zhelanov https://soundcloud.com/alexandr-zhelanov" |
+| OpenGameArt, *Ritual Traps* by Alexandr Zhelanov | *Ritual Traps*, "ethnic ancient aztecs\maya music style" in the author's words (the Ogg Vorbis file) | CC BY 4.0: the page, same attribution |
+
+The four are the Aztecs' peace music in every era and lead their playlist (*Great Pyramids* opens it); the two New World pieces from FreeCol stay behind them. A cloud session cannot reach opengameart.org, so the files were downloaded on another machine; the script checks each file's MD5. Nobody has listened to them in the game: they were chosen by title, the author's description and measurement. With this pass every gap named above has a recording.
