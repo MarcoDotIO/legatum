@@ -72,7 +72,7 @@ Contributor Covenant 2.1 (CC BY 4.0), as it says.
 
 ## Audio
 
-The shipped music and sound effects (`app/public/audio/`, 119 files) are third-party works under five licences.
+The shipped music and sound effects (`app/public/audio/`, 123 files) are third-party works under five licences.
 The per-file source, author and processing are in `app/public/audio/CREDITS.md` and
 `app/public/audio/manifest.json`, and the same credits appear in the game under How to Play → Credits.
 
@@ -106,14 +106,17 @@ The per-file source, author and processing are in `app/public/audio/CREDITS.md` 
   under the GPL, version 2 or later. The licence text is in `app/public/audio/licenses/GPL-2.0-or-later.txt`. The
   GPL covers these audio files only: they are separate works that the game plays, and it does not extend to
   Legatum's code or art.
-- **CC BY 4.0** (10 files): 8 music tracks by Alexander Zhelanov and Stian Grenborgen from FreeCol
-  (https://www.freecol.org/; Debian's copyright file for the game: `data/default/resources/music/default/*`), and
-  two Freesound recordings copied from Unciv: "uzzi_full_single" by Deganoth and "ceremonial cannon fire" by
+- **CC BY 4.0** (11 files): 8 music tracks by Alexander Zhelanov and Stian Grenborgen from FreeCol
+  (https://www.freecol.org/; Debian's copyright file for the game: `data/default/resources/music/default/*`),
+  "Ritual Traps" by Alexandr Zhelanov (https://soundcloud.com/alexandr-zhelanov;
+  https://opengameart.org/content/ritual-traps), for the Aztecs, and two Freesound recordings copied from Unciv: "uzzi_full_single" by Deganoth and "ceremonial cannon fire" by
   DylanSmithSound. Licensed under Creative Commons Attribution 4.0 (https://creativecommons.org/licenses/by/4.0/);
   trimmed, loudness-matched and re-encoded. The licence text is in `app/public/audio/licenses/CC-BY-4.0.txt`.
-- **CC BY 3.0** (1 file): "Incoming Artillery Strike Cinematic Explosion" by EvanBoyerman (freesound.org), edited
-  by the Unciv team and for Legatum, licensed under Creative Commons Attribution 3.0
-  (https://creativecommons.org/licenses/by/3.0/). The licence text is in `app/public/audio/licenses/CC-BY-3.0.txt`.
+- **CC BY 3.0** (4 files): "Great Pyramids", "Face to Face" and "Life in Forest" by Alexandr Zhelanov
+  (https://soundcloud.com/alexandr-zhelanov; https://opengameart.org/content/forgotten-music-of-aztecs), music for
+  the Aztecs, loudness-matched and re-encoded (`tools/audio/build_aztec.py`); and "Incoming Artillery Strike
+  Cinematic Explosion" by EvanBoyerman (freesound.org), edited by the Unciv team and for Legatum. Licensed under
+  Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/). The licence text is in `app/public/audio/licenses/CC-BY-3.0.txt`.
 
 ## Art
 
