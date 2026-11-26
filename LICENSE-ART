@@ -31,21 +31,17 @@ What this does not cover
 - Everything that is not an image or a video: source code, scripts, documentation, in-game
   text, the art prompts (`*.prompt.txt`), scenarios, saves, test fixtures, simulation results
   and other data files. These are under the MIT licence (LICENSE).
-- Audio (app/public/audio/). All shipped music and sound effects are third-party works released
-  under CC0 1.0 (Kenney, Breviceps and vitalezzz). See app/public/audio/CREDITS.md and
+- Audio (app/public/audio/). All shipped music and sound effects are third-party works: some
+  released under CC0 1.0 (Kenney, Breviceps, vitalezzz and others), the music of each people, the
+  battle sounds and the sounds of the land from 0 A.D. by Wildfire Games under CC BY-SA 3.0,
+  later-era music from Unknown Horizons and the Warzone 2100 soundtracks under CC BY-SA 3.0 (the edited files stay under
+  CC BY-SA 3.0) and from FreeCol under CC BY 4.0, and three Freesound recordings under CC BY 4.0
+  and CC BY 3.0, and twelve files from The Battle for Wesnoth and Warzone 2100 under the GPL,
+  version 2 or later. See app/public/audio/CREDITS.md and
   app/public/audio/licenses/.
 - Fonts (Cormorant and Libre Franklin, SIL Open Font License 1.1), installed from npm through
   `@fontsource` and not stored in this repository.
 - Historical peoples, places and names depicted in the game, which are public-domain history.
-- Animated unit art built from 0 A.D. assets. Some animated units are made from meshes,
-  skeletons, props and animations by Wildfire Games, from the open-source game 0 A.D.
-  (https://play0ad.com), source revision 61a3b9507d974084e6badb88a0826bd89a6d5b8b, licensed
-  under the Creative Commons Attribution-ShareAlike 3.0 licence (CC BY-SA 3.0,
-  https://creativecommons.org/licenses/by-sa/3.0/). We retargeted, repainted and rendered them
-  into sprite sheets. Those sprite sheets, and any of their source files in this repository, are
-  licensed under CC BY-SA 3.0, not CC BY 4.0. Credit: "0 A.D. art by Wildfire Games, CC BY-SA 3.0;
-  adapted for Legatum". Each such unit's folder has a PROVENANCE.md naming the exact 0 A.D. files
-  used and what we changed.
 
 How the art was made
 --------------------
